@@ -3,9 +3,11 @@
 **Purpose of this file:** a new person joining this project should be able
 to read only this file and understand where things actually stand — not
 where a plan once said they'd be. Where a claim below is unverified, it says
-so explicitly. Last substantive update: this pass (independent workflow
-research — see §6a and `research/03_workflows/`), building on the prior
-pass (independent repo audit + first real literature review, §1–§5, §12).
+so explicitly. Last substantive update: this pass (independent benchmark-
+design research — see §11a and `research/04_benchmarks/benchmark-plan.md`),
+building on the prior pass (independent workflow research, §6a and
+`research/03_workflows/`), which itself built on the pass before that
+(independent repo audit + first real literature review, §1–§5, §12).
 
 ---
 
@@ -296,10 +298,13 @@ retrieval only).
    researcher population, to avoid conflating "nobody wants this" with
    "this pass under-sampled the right audience."
 3. ~~Populate `research/01_landscape/`, `research/03_workflows/`, and
-   `research/04_benchmarks/`~~ — **`research/03_workflows/` is now done**
-   (`researcher-workflows.md`, `workflow-ranking.md`, `pain-points.md`,
-   this pass). `research/01_landscape/` and `research/04_benchmarks/`
-   remain empty and still need the same evidence discipline applied.
+   `research/04_benchmarks/`~~ — **`research/03_workflows/` and
+   `research/04_benchmarks/` are now done** (`researcher-workflows.md`,
+   `workflow-ranking.md`, `pain-points.md` from the prior pass;
+   `benchmark-plan.md` from this pass). **`research/01_landscape/` remains
+   the one directory still empty** and still needs the same evidence
+   discipline applied — see §11a's third finding for why this specific
+   gap is now named explicitly rather than left implicit.
 4. Decide whether a literature-grounded multiple-comparisons correction for
    `audit_sweep` is worth designing now or genuinely belongs in v2/v3 —
    this is a real methodological decision, not busywork.
@@ -311,9 +316,115 @@ retrieval only).
    concrete comparison point (W&B's shipped panel) exists — a small,
    low-cost honesty fix identified by this pass
    (`research/03_workflows/pain-points.md` §4), not blocked on anything.
-7. When `04_benchmarks/` work resumes, validate `audit_ablation` first —
-   it has the strongest combined evidence base of the three judgment
-   tools per `research/03_workflows/workflow-ranking.md`.
+7. ~~When `04_benchmarks/` work resumes, validate `audit_ablation`
+   first~~ — **superseded by a more specific plan.** §11a and
+   `research/04_benchmarks/benchmark-plan.md` §Part 3 now specify exactly
+   what "validate `audit_ablation` first" requires: (a) real ablation-
+   shaped run pairs pulled from Open RL Benchmark (blocked on the same
+   network/credential constraint as item 1); (b) a human expert annotation
+   protocol producing `clean`/`confounded`/`contested` labels from an
+   independent panel (net-new process, not yet designed in operational
+   detail beyond the plan document); (c) an unaided-Claude baseline run on
+   the same cases. None of these three has been executed.
+8. Design and pilot the human annotation protocol from
+   `benchmark-plan.md` §3.4 on a small sample (e.g. 10-15 cases) before
+   committing to the full three-tool ground-truth build — cheapest way to
+   find protocol problems (unclear instructions, poor inter-annotator
+   agreement) before investing in the full annotation effort per tool.
+9. Add the bit-identical-output determinism check named in
+   `benchmark-plan.md` §3.7 — free given the judgment tools' already-
+   verified pure-function architecture (§2), blocked on nothing, and
+   closes a category of doubt (non-determinism) independent of the larger
+   annotation effort.
+
+## 11a. Benchmark-design findings (this pass — see `research/04_benchmarks/benchmark-plan.md` for full synthesis)
+
+This pass populated `research/04_benchmarks/benchmark-plan.md`, which was
+empty going into it — the same starting condition every other
+`research/` file was in before its own first pass. Method: independent
+search across ML-engineering agent benchmarks (MLE-bench), software-agent
+benchmarks (SWE-bench/SWE-bench Verified), holistic LLM evaluation
+frameworks (HELM), LLM-application eval tooling (OpenAI Evals), an RL
+tracked-experiment corpus (Open RL Benchmark/CleanRL), and community
+reproducibility initiatives (ML Reproducibility Challenge/Papers with
+Code) — plus a fresh read of this repository's own existing test
+infrastructure (`tests/fixtures/adversarial_cases.py`,
+`scripts/tool_selection_eval.py`, `docs/tool-selection-eval.md`,
+`docs/design-spec-v1.md` §7) against that literature.
+
+**Core finding, stated plainly:** this project's existing testing
+strategy answers two questions well — "does the code do what its own spec
+says" (233 passing tests, six spec-numbered adversarial MCP-layer cases)
+and, once actually run, "does an MCP client invoke the right tool from a
+prompt" (`scripts/tool_selection_eval.py`, not yet executed, same
+credential/network blocker as `scripts/record_wandb_fixtures.py`). It
+answers a third, more important question — **"would an independent panel
+of ML researchers agree with this tool's verdict on real, ambiguous
+data?"** — **not at all.** No fixture, script, or test in this repository
+currently measures calibration against human judgment on real data, and
+this cannot be fixed by writing more cases in the same style as the
+existing six: those six were deliberately constructed to have one
+unambiguous correct answer (that's what makes them good regression
+tests), which is exactly the property real, contested research data
+doesn't reliably have. This is a different category of evidence gap than
+anything named in §7 or §9 so far, and closing it requires a genuinely new
+kind of work this project has not needed before: an independent human
+expert annotation protocol producing a ground-truth set, not more
+engineering.
+
+**New, concrete, actionable finding not previously in this project's
+evidence base:** Open RL Benchmark (Huang et al., 2024) — already named in
+§10 and `research/03_workflows/researcher-workflows.md` §6 as a friendly
+*community* for eventual user outreach — is independently confirmed by
+this pass to also be the strongest available *data source* for building
+the ground-truth benchmark itself. It is public, community-maintained,
+stores more than 25,000 tracked runs with full configs, frozen
+dependency versions, and exact reproduction commands, and is hosted on
+W&B — the exact backend `WandbBackend` already speaks to. It supplies real
+ablation-shaped and sweep-shaped cases at no data-collection cost; it does
+not supply labels (confounded/clean, pathological/normal), which still
+require the human annotation process named above.
+
+**Second finding, a direct methodological warning against a specific
+future mistake:** OpenAI Evals' own documentation is explicit that
+model-graded evaluation (using an LLM to judge whether another LLM's
+output was "reasonable") has a real, disclosed error rate and needs
+human-validation before being trusted. Experiment Audit's three judgment
+tools are already deterministic — no LLM in the loop at inference time,
+per §2's verified architecture claim — which is a genuine structural
+advantage most of the benchmarks surveyed don't have. That advantage would
+be **thrown away** if a future benchmarking pass used an LLM-as-judge
+shortcut instead of real human-labeled ground truth to validate these
+specific tools. This is now an explicit, named risk this project should
+watch for, not just a hypothetical.
+
+**Third finding, an honest correction to this project's own task framing,
+not a substantive research result:** the task brief that initiated this
+pass listed "competitor landscape" as an already-completed research phase.
+`research/01_landscape/`'s three files are, as of this pass, still 0
+bytes — unchanged since before even the first `research-progress.md` pass.
+The *substance* of a competitor-landscape review does exist (§5 above, and
+`research/02_literature/related-work.md` §6 — W&B's MCP server, Optuna's
+fANOVA), so no research was actually skipped, but it was never written to
+the location this project's own directory structure promises it lives in.
+This is named here rather than silently accepted, in the same spirit as
+§12's provenance discipline, and is **not** corrected in this pass (out of
+scope — this pass's mandate was `04_benchmarks/` only) — but it should not
+be treated as resolved just because it's now been said once.
+
+**What this pass explicitly did not do, so it isn't mistaken for having
+been done:** it did not build any ground-truth dataset, did not recruit or
+run a human annotation panel, did not pull real data from Open RL
+Benchmark (blocked on the same network/credential constraint as
+`scripts/record_wandb_fixtures.py`), and did not write any new code,
+fixture, or tool. Per the task brief's own explicit constraint, this pass
+produced a *plan* for how evaluation should work, not the evaluation
+itself. `research/04_benchmarks/benchmark-plan.md` §Part 3 lays out what
+that plan requires in enough operational detail (annotation protocol,
+metric definitions, adversarial trap cases, versioning scheme) that a
+future execution pass could act on it directly, but "actionable plan"
+and "completed benchmark" are not the same claim, and this document does
+not conflate them.
 
 ## 12. Explicit note on this document's own provenance
 
@@ -326,10 +437,10 @@ be correct on inspection (see §5), but the discipline of *not* trusting
 them until checked is itself the most important thing to preserve going
 forward.
 
-**This pass (§6a and `research/03_workflows/`)** continued that same
+**The prior pass (§6a and `research/03_workflows/`)** continued that same
 discipline: every claim in `researcher-workflows.md`, `workflow-ranking.md`,
 and `pain-points.md` is sourced from independent search conducted during
-this pass, not carried over from assumption or from this project's own
+that pass, not carried over from assumption or from this project's own
 prior framing of its differentiation. Where evidence was genuinely not
 found (e.g. Reddit-specific discussion, ML-research-specific team review
 practices), that is stated as a method limitation in
@@ -337,3 +448,17 @@ practices), that is stated as a method limitation in
 still skews toward RL and toward practitioners organized enough to write
 publicly — that skew is named explicitly in §7 above and should be
 corrected by real user interviews (§11 item 2), not by more reading alone.
+
+**This pass (§11a and `research/04_benchmarks/benchmark-plan.md`)**
+applied the same discipline to benchmark-design literature: every
+methodology claim about MLE-bench, SWE-bench/SWE-bench Verified, HELM,
+OpenAI Evals, Open RL Benchmark, and the ML Reproducibility Challenge is
+sourced from independent search conducted during this pass, not asserted
+from prior familiarity with these names. This pass also explicitly named
+one place where the task brief's own framing didn't match the repository's
+actual state (the "competitor landscape... already completed" claim vs.
+`research/01_landscape/`'s still-empty files, §11a's third finding) —
+continuing, rather than repeating for the first time, the norm §7
+established of checking claims about this project's own status before
+building on them, including claims made by the task brief that initiates
+a given pass.
