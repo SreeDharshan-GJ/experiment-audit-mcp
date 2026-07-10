@@ -1,0 +1,41 @@
+name: CI
+
+# Lint + test on push/PR, per implementation-roadmap-v1.md's Milestone 0
+# deliverables. The roadmap's Milestone 0 correction note states this
+# file "was missed during the original Milestone 0 pass and only added
+# at the Milestone 3->4 transition" -- during the Milestone 9 review that
+# claim was checked against the actual repository state and found to be
+# inaccurate: no .github/workflows/ file existed. This is a documentation/
+# repository inconsistency, not a Milestone 9 deliverable in its own
+# right; it is restored here as a small corrective action (matching the
+# roadmap's own precedent for how a missed-then-caught deliverable should
+# be handled), not a new scope item, and is called out explicitly in the
+# Milestone 9 summary rather than fixed silently.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package with dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Test (pytest)
+        run: pytest -v
