@@ -134,7 +134,9 @@ def make_run(entity, project, name, tags, config, pathology=None, seed=0, steps=
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate a W&B testbed project for experiment-audit")
+    parser = argparse.ArgumentParser(
+    description="Generate a W&B testbed project for experiment-audit",
+)
     parser.add_argument("--entity", required=True, help="Your W&B entity (username or team)")
     parser.add_argument("--project", default=PROJECT_DEFAULT, help="W&B project name")
     args = parser.parse_args()
@@ -202,3 +204,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
