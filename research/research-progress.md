@@ -3,9 +3,11 @@
 **Purpose of this file:** a new person joining this project should be able
 to read only this file and understand where things actually stand — not
 where a plan once said they'd be. Where a claim below is unverified, it says
-so explicitly. Last substantive update: this pass (independent benchmark-
-design research — see §11a and `research/04_benchmarks/benchmark-plan.md`),
-building on the prior pass (independent workflow research, §6a and
+so explicitly. Last substantive update: this pass (validation-protocol
+design — see §11b and the newly-populated `validation/` directory),
+building on the prior pass (independent benchmark-design research, §11a
+and `research/04_benchmarks/benchmark-plan.md`), which built on the pass
+before that (independent workflow research, §6a and
 `research/03_workflows/`), which itself built on the pass before that
 (independent repo audit + first real literature review, §1–§5, §12).
 
@@ -426,6 +428,174 @@ future execution pass could act on it directly, but "actionable plan"
 and "completed benchmark" are not the same claim, and this document does
 not conflate them.
 
+## 11b. Validation-protocol design findings (this pass — see `validation/` for full package)
+
+This pass populated all five files scaffolded (0 bytes each) by commit
+`ff494be`, "Create validation framework": `validation/validation-plan.md`,
+`validation/capability-matrix.md`, `validation/datasets.md`,
+`validation/annotation-guidelines.md`. (`validation/README.md` remains
+0 bytes — out of scope for this pass's explicit four-file mandate, named
+here rather than silently left, in the same spirit §11a already
+established for `research/01_landscape/`.) Method: this pass did **not**
+re-run the literature/methodology research `research/04_benchmarks/
+benchmark-plan.md` already completed. It read that document and
+`research/research-progress.md` in full first, per the task brief's
+explicit instruction not to repeat previous research, and then did the
+work the benchmark plan's own Part 4 identified as still missing:
+turning a designed methodology into an executable protocol — phases,
+gates, roles, decision criteria, a concrete per-tool FP/FN specification,
+dataset sourcing/sizing/versioning, and an annotator-facing labeling
+rubric a person who has never read the benchmark plan could pick up and
+follow.
+
+**Why the protocol was designed this way — the decisions this pass had to
+make that the benchmark plan left open:**
+
+- **Calibration and utility were split into two explicitly separate
+  questions (`validation-plan.md` §1), not scored together.** The
+  benchmark plan's own scope was calibration only (its Part 2 explicitly
+  frames the gap as "calibration against expert human judgment on real
+  data"). This pass judged that calibration evidence alone cannot answer
+  the task brief's actual mission question — "does Version 1 genuinely
+  help ML researchers" — because a tool can be well-calibrated and still
+  not be something a researcher wants surfaced unprompted (the core UX
+  bet `research-progress.md` §7/§9 already named as the single largest
+  unvalidated assumption in the whole project, independent of anything
+  about calibration). Folding a small, necessarily qualitative utility
+  track (`validation-plan.md` §5 Phase 5) into the same statistical
+  report as the calibration numbers would have either diluted the
+  calibration rigor or manufactured false quantitative precision from
+  3-5 interviews. Keeping them structurally separate, with both required
+  before a tool counts as "validated" (§7's decision criteria), was the
+  most defensible way found to honor both halves of the mission
+  statement without letting either one substitute for the other.
+- **Per-tool, asymmetric FP/FN targets, not one shared bound.** The
+  benchmark plan named the *direction* of asymmetry per tool (§3.6) but
+  did not commit to numbers — deliberately, since it predates any real
+  data. This pass assigned concrete recommended-default percentages
+  (`capability-matrix.md`) so the protocol is actually executable and a
+  future report has something to check its results against, while
+  stating explicitly (`validation-plan.md` §10) that these are
+  recommended defaults to be confirmed or revised at the Phase 2 pilot
+  gate, not numbers this pass has evidence to fix precisely. The
+  alternative — leaving the acceptable-rate fields blank until real data
+  exists — would have technically satisfied the task brief's checklist
+  without producing a usable protocol; a number stated as provisional and
+  revisable is more useful than no number, provided the provisional
+  status is never dropped silently.
+- **A hard gate between piloting the annotation protocol and scaling it**
+  (`validation-plan.md` §5 Phase 2→3), not just a recommendation. This
+  was judged necessary, not optional, because the single biggest risk
+  this whole package introduces beyond what the benchmark plan already
+  covers is a genuinely new failure mode for this project: a
+  ground-truth set built on a flawed protocol would *look* authoritative
+  (published kappa, published raw labels, versioned) while actually being
+  wrong, and nothing about versioning or publishing raw labels catches a
+  bad protocol on its own — only a pilot-then-gate structure does. This
+  is why `annotation-guidelines.md` §6 states explicit kappa bands with a
+  "do not proceed" tier, not just a target to aim for.
+- **Retrieval tools and tool-selection accuracy were kept in the
+  capability matrix as explicit category-1/category-3 rows with `N/A`
+  FP/FN cells, rather than omitted.** The task brief asked for every
+  existing capability to have every field defined. Forcing invented FP/FN
+  numbers onto a deterministic schema-translation function would have
+  technically filled the cell while manufacturing false rigor — the exact
+  failure mode `validation-plan.md` §4 principle 5 (inherited from
+  benchmark plan §3.1) warns against. Marking the field `N/A` with a
+  stated reason was judged more honest than a number with no meaning
+  behind it, and still satisfies "every capability is addressed" — just
+  not uniformly.
+
+**What assumptions remain untested after this pass:**
+
+- **Every numeric target in `capability-matrix.md` (FP/FN ceilings) and
+  `validation-plan.md` §7 (the 15-percentage-point calibration margin,
+  the ≥90%/≥75% tool-selection bars) is a design-time judgment call, not
+  yet checked against any real data** — exactly the same status
+  `research-progress.md` §3 already describes for `audit_training_curve`'s
+  own thresholds. This pass did not, and could not, resolve that; it
+  explicitly names each number as provisional (`validation-plan.md` §10)
+  rather than presenting a false sense of precision.
+- **Whether 3 annotators per case is sufficient**, versus needing more for
+  a stable kappa estimate, especially on the smaller `audit_sweep` dataset
+  (`datasets.md` §4's 15-25 sweeps, the smallest of the three sets) —
+  untested; the Phase 2 pilot is specifically designed to surface this
+  before the full run commits resources, but the pilot itself hasn't run.
+- **Whether the stratification targets in `datasets.md` §2-§4 (e.g. "~40%
+  obvious / ~40% moderate / ~20% adversarial" for `audit_ablation`) are
+  achievable from Open RL Benchmark's actual real-world case mix** —
+  this pass set stratification targets based on what a well-designed
+  ground-truth set should look like (per the benchmark plan's synthesis
+  of SWE-bench Verified and MLE-bench's own dataset-design lessons), not
+  from having already inventoried what Open RL Benchmark's corpus
+  actually contains case-by-case. If the real corpus doesn't naturally
+  split this way, Phase 1 will need to either accept a different mix
+  (disclosed, not silently substituted) or supplement with more
+  hand-constructed trap cases than currently anticipated.
+- **Whether the recruited annotation panel will actually be independent
+  of this project** in practice (§1's requirement) is a staffing
+  question this pass cannot verify in advance — it can only state the
+  requirement and the reason for it.
+- **The entire utility track (Phase 5) is unvalidated as a *method*, not
+  just unexecuted** — this pass designed a lightweight qualitative
+  interview structure because `research-progress.md` §11 item 2 already
+  named "talk to 3-5 researchers" as the highest-leverage next step, but
+  whether unstructured qualitative notes from 3-5 people can actually
+  produce a defensible signal about a product-adoption question is itself
+  an open methodological question this pass did not attempt to resolve
+  beyond stating the limitation (`validation-plan.md` §10).
+
+**What evidence would be required before Version 2 begins** (directly
+answering the task brief's closing instruction, stated here rather than
+left implicit):
+
+1. **At minimum, one judgment tool** (`audit_ablation`, per the existing
+   priority ranking) **must complete Phases 0 through 4** of
+   `validation-plan.md` §5 with a published report following §8's
+   template, including a pilot that passed Phase 2's kappa gate — not a
+   partial run, not a report that skips the unaided-Claude baseline or
+   the adversarial trap cases.
+2. **The calibration bar and differentiation bar in `validation-plan.md`
+   §7 must both be evaluated and reported, whether met or not.** A
+   result showing the tool fails one or both bars is sufficient evidence
+   to *inform* a Version 2 decision (e.g. "the allowlist needs revision"
+   or "this tool doesn't clear the bar unaided-Claude already clears") —
+   it is not evidence that no decision can be made. What would actually
+   block a responsible Version 2 decision is the *absence* of this
+   evidence, not a negative result within it.
+3. **At least a preliminary utility signal from Phase 5**, even a small
+   one, showing whether researchers want unprompted judgment versus
+   on-demand checks — because a Version 2 built on calibration evidence
+   alone could optimize a tool nobody wants used the way it currently
+   works. This is the same unresolved core-UX-bet risk `research-progress.md`
+   §9 has flagged since before this pass and remains flagged after it.
+4. **No threshold, allowlist, or scoring change should be made in
+   anticipation of a benchmark result** — any change made *in response* to
+   a specific, cited FP/FN finding from an executed (not merely designed)
+   ground-truth set is legitimate Version 2 input; a change made because
+   this pass's protocol exists, before it has actually been run against
+   real data, would violate the evidence discipline this entire project
+   has tried to hold itself to since §7 first named its own gap.
+5. **This document's own claims about the protocol's design should be
+   re-checked once Phase 2 actually runs** — specifically, whether the
+   kappa bands in `annotation-guidelines.md` §6 and the FP/FN targets in
+   `capability-matrix.md` turn out to be achievable or need revision. A
+   protocol that looks sound on paper and a protocol that survives
+   contact with real annotators and real data are different claims, and
+   only the second is sufficient grounding for Version 2 work.
+
+**What this pass explicitly did not do, so it isn't mistaken for having
+been done:** it did not source or freeze any dataset, did not recruit or
+run any annotation panel (pilot or full), did not compute any real
+inter-annotator agreement number, did not run the two credential-blocked
+scripts (`record_wandb_fixtures.py`, `tool_selection_eval.py`), and did
+not analyze any experiment. Per the task brief's explicit instruction,
+this pass produced the *protocol*, not the validation itself — the same
+distinction `research/04_benchmarks/benchmark-plan.md` §Part 3's closing
+paragraph already drew between "actionable plan" and "completed
+benchmark," now one level more operational but still on the plan side of
+that line.
+
 ## 12. Explicit note on this document's own provenance
 
 This file, and `research/02_literature/related-work.md` and
@@ -449,12 +619,12 @@ still skews toward RL and toward practitioners organized enough to write
 publicly — that skew is named explicitly in §7 above and should be
 corrected by real user interviews (§11 item 2), not by more reading alone.
 
-**This pass (§11a and `research/04_benchmarks/benchmark-plan.md`)**
+**The prior pass (§11a and `research/04_benchmarks/benchmark-plan.md`)**
 applied the same discipline to benchmark-design literature: every
 methodology claim about MLE-bench, SWE-bench/SWE-bench Verified, HELM,
 OpenAI Evals, Open RL Benchmark, and the ML Reproducibility Challenge is
-sourced from independent search conducted during this pass, not asserted
-from prior familiarity with these names. This pass also explicitly named
+sourced from independent search conducted during that pass, not asserted
+from prior familiarity with these names. That pass also explicitly named
 one place where the task brief's own framing didn't match the repository's
 actual state (the "competitor landscape... already completed" claim vs.
 `research/01_landscape/`'s still-empty files, §11a's third finding) —
@@ -462,3 +632,27 @@ continuing, rather than repeating for the first time, the norm §7
 established of checking claims about this project's own status before
 building on them, including claims made by the task brief that initiates
 a given pass.
+
+**This pass (§11b and `validation/`)** did not do independent literature
+research at all — deliberately, per the task brief's explicit "do not
+repeat previous research" instruction, and because the benchmark plan had
+already done that work. What this pass verified independently instead was
+the *state of the repository itself*: that all five `validation/` files
+were genuinely 0 bytes before this pass (confirmed by direct inspection
+and by reading commit `ff494be`'s diff, which shows five empty-file
+additions), rather than trusting the task brief's framing that validation
+work was starting from scratch. It also re-read every claim in this file
+and in `benchmark-plan.md` that this pass's protocol design decisions
+depend on (the three judgment tools' documented failure modes, the exact
+threshold constants, the existing adversarial case set's scope) directly
+from the source code (`analysis/confound.py`, `analysis/divergence.py`,
+`analysis/sensitivity.py`, `tests/fixtures/adversarial_cases.py`) rather
+than from this document's own prior summaries of them, so that
+`capability-matrix.md`'s per-tool failure-mode lists are traceable to the
+actual code comments and docstrings that name them, not to a paraphrase
+of a paraphrase. Continuing the same norm §7 and §11a established: nothing
+in this pass's design decisions should be taken as validated just because
+it is now written down in a structured document — §11b's own "what
+remains untested" list exists specifically so this pass's own output
+doesn't quietly become the next thing future work trusts without
+checking.
