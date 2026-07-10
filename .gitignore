@@ -20,3 +20,6 @@ venv/
 
 # Local credentials (never commit a real key; see docs/design-spec-v1.md §6)
 .env
+
+# Weights & Biases
+wandb/
