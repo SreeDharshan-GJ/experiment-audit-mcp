@@ -28,6 +28,7 @@ import argparse
 import json
 import sys
 from datetime import UTC, datetime
+from importlib.metadata import version
 from pathlib import Path
 
 try:
@@ -64,7 +65,7 @@ def record_run_scenario(
 
     metadata = {
         "recorded_at": datetime.now(UTC).isoformat(),
-        "wandb_sdk_version": wandb.__version__,
+        "wandb_sdk_version": version("wandb"),
         "scenario": scenario,
         "source_path": f"{entity}/{project}/{run_id}",
     }

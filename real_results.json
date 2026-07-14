@@ -1,0 +1,5 @@
+{
+  "baseline_acc": 0.969,
+  "ablation_acc": 0.942,
+  "control_acc": 0.957
+}
