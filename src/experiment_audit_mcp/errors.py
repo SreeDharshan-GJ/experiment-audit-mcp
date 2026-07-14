@@ -20,6 +20,26 @@ from typing import Literal
 
 ErrorType = Literal[
     "auth_failed",
+    # **Flag (audit finding, dead/unreachable in the current MCP layer):**
+    # `server.py`'s `_translate_backend_error` — the sole place that
+    # turns a caught backend exception into a `ToolError` — has no
+    # branch that ever produces `"rate_limited"`. This is consistent
+    # with that function's own docstring ("Rate-limiting is deliberately
+    # *not* classified here... by the time an exception reaches this
+    # function, the backend has already exhausted its retries"), so this
+    # is not a missed classification bug — it's an intentional
+    # consequence of where backoff lives. But that means no code path in
+    # this repository has ever constructed a `"rate_limited"` ToolError,
+    # and nothing exercises one in the test suite; any client written
+    # today to specifically branch on `error_type == "rate_limited"`
+    # (e.g. to apply its own backoff) is branching on a value this server
+    # cannot currently produce. Kept in the literal set as a reservation
+    # for a future backend that can report remaining rate-limit budget
+    # directly (with a real `retry_after_seconds`) rather than removed,
+    # since removing a value from a frozen (spec §5) taxonomy is a
+    # breaking change to any client already validating against it — but
+    # flagged here so the gap is visible at the point anyone would look
+    # to use this value, not just in an audit document.
     "rate_limited",
     "run_not_found",
     "backend_unsupported_capability",

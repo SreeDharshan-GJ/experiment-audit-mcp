@@ -98,8 +98,7 @@ TOOL_SELECTION_PROMPTS: list[ToolSelectionPrompt] = [
     ),
     ToolSelectionPrompt(
         prompt=(
-            "Was my seed-only rerun actually a clean ablation, or did "
-            "something else change too?"
+            "Was my seed-only rerun actually a clean ablation, or did something else change too?"
         ),
         expected_tool="audit_ablation",
         rationale="Explicit verdict request ('actually a clean ablation') on a claimed variable.",

@@ -52,8 +52,7 @@ class NotSupportedError(Exception):
         self.backend_name = backend_name
         self.capability = capability
         super().__init__(
-            f"Backend {backend_name!r} does not support capability "
-            f"{capability.value!r}."
+            f"Backend {backend_name!r} does not support capability {capability.value!r}."
         )
 
 

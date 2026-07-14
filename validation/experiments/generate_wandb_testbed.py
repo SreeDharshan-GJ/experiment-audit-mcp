@@ -135,8 +135,8 @@ def make_run(entity, project, name, tags, config, pathology=None, seed=0, steps=
 
 def main():
     parser = argparse.ArgumentParser(
-    description="Generate a W&B testbed project for experiment-audit",
-)
+        description="Generate a W&B testbed project for experiment-audit",
+    )
     parser.add_argument("--entity", required=True, help="Your W&B entity (username or team)")
     parser.add_argument("--project", default=PROJECT_DEFAULT, help="W&B project name")
     args = parser.parse_args()
@@ -148,48 +148,80 @@ def main():
 
     # 2) Ablation pair — differs ONLY in use_memory (for audit_ablation)
     make_run(
-        args.entity, args.project, "ablation_memory_on",
-        ["ablation"], dict(base_config, use_memory=True), seed=2,
+        args.entity,
+        args.project,
+        "ablation_memory_on",
+        ["ablation"],
+        dict(base_config, use_memory=True),
+        seed=2,
     )
     make_run(
-        args.entity, args.project, "ablation_memory_off",
-        ["ablation"], dict(base_config, use_memory=False), seed=2,
+        args.entity,
+        args.project,
+        "ablation_memory_off",
+        ["ablation"],
+        dict(base_config, use_memory=False),
+        seed=2,
     )
 
     # 3) Hyperparameter sweep — lr has a real effect, batch_size/hidden_dim
     #    contribute smaller effects, giving audit_sweep something to rank
     sweep_grid = [
         dict(lr=0.0005, batch_size=32, hidden_dim=128, use_memory=True),
-        dict(lr=0.001,  batch_size=32, hidden_dim=128, use_memory=True),
-        dict(lr=0.003,  batch_size=32, hidden_dim=128, use_memory=True),
-        dict(lr=0.01,   batch_size=32, hidden_dim=128, use_memory=True),   # too high -> worse
-        dict(lr=0.001,  batch_size=16, hidden_dim=128, use_memory=True),
-        dict(lr=0.001,  batch_size=128, hidden_dim=128, use_memory=True),
-        dict(lr=0.001,  batch_size=32, hidden_dim=64, use_memory=True),
-        dict(lr=0.001,  batch_size=32, hidden_dim=256, use_memory=True),
+        dict(lr=0.001, batch_size=32, hidden_dim=128, use_memory=True),
+        dict(lr=0.003, batch_size=32, hidden_dim=128, use_memory=True),
+        dict(lr=0.01, batch_size=32, hidden_dim=128, use_memory=True),  # too high -> worse
+        dict(lr=0.001, batch_size=16, hidden_dim=128, use_memory=True),
+        dict(lr=0.001, batch_size=128, hidden_dim=128, use_memory=True),
+        dict(lr=0.001, batch_size=32, hidden_dim=64, use_memory=True),
+        dict(lr=0.001, batch_size=32, hidden_dim=256, use_memory=True),
     ]
     for i, cfg in enumerate(sweep_grid):
         make_run(
-            args.entity, args.project, f"sweep_{i:02d}",
-            ["sweep"], cfg, seed=10 + i,
+            args.entity,
+            args.project,
+            f"sweep_{i:02d}",
+            ["sweep"],
+            cfg,
+            seed=10 + i,
         )
 
     # 4) Pathological runs (for audit_training_curve)
     make_run(
-        args.entity, args.project, "pathology_nan",
-        ["pathology"], dict(base_config), pathology="nan_spike", seed=20,
+        args.entity,
+        args.project,
+        "pathology_nan",
+        ["pathology"],
+        dict(base_config),
+        pathology="nan_spike",
+        seed=20,
     )
     make_run(
-        args.entity, args.project, "pathology_plateau",
-        ["pathology"], dict(base_config), pathology="plateau", seed=21,
+        args.entity,
+        args.project,
+        "pathology_plateau",
+        ["pathology"],
+        dict(base_config),
+        pathology="plateau",
+        seed=21,
     )
     make_run(
-        args.entity, args.project, "pathology_oscillation",
-        ["pathology"], dict(base_config), pathology="oscillation", seed=22,
+        args.entity,
+        args.project,
+        "pathology_oscillation",
+        ["pathology"],
+        dict(base_config),
+        pathology="oscillation",
+        seed=22,
     )
     make_run(
-        args.entity, args.project, "pathology_level_shift",
-        ["pathology"], dict(base_config), pathology="level_shift", seed=23,
+        args.entity,
+        args.project,
+        "pathology_level_shift",
+        ["pathology"],
+        dict(base_config),
+        pathology="level_shift",
+        seed=23,
     )
 
     print(f"\nDone. Created 14 runs in entity='{args.entity}', project='{args.project}'.")
@@ -204,4 +236,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -23,8 +23,6 @@ Derived from `design-spec-v1.md` (frozen). Each milestone is independently revie
 
 **Completion criteria:** `pytest` runs (0 tests, exit 0), lint passes, CI green on a trivial commit.
 
-**Correction note:** the CI config deliverable above was missed during the original Milestone 0 pass and only added at the Milestone 3→4 transition (`.github/workflows/ci.yml`, lint + test on push/PR). Flagged and fixed as a small corrective action, not a design change — see the Milestone 3→4 transition summary.
-
 **TDD note:** N/A — no logic yet.
 
 ---
@@ -36,7 +34,7 @@ Derived from `design-spec-v1.md` (frozen). Each milestone is independently revie
 **Depends on:** Milestone 0.
 
 **Deliverables:**
-- `src/models.py` with all dataclasses, frozen where specified (`RunRef` must be frozen/hashable since it's used as a dict key candidate in `compare_runs` output)
+- `src/experiment_audit_mcp/models.py` with all dataclasses, frozen where specified (`RunRef` must be frozen/hashable since it's used as a dict key candidate in `compare_runs` output)
 - `Page[T]` generic wrapper (`items`, `next_cursor`)
 - Serialization helpers (to-dict, since MCP tool responses are JSON) with explicit tests that `None` values (e.g. `MetricPoint.value = None` for a logged NaN) survive serialization rather than being dropped — this is a spec-critical behavior (§2, §7 adversarial case), so it's tested here at the model layer, not deferred to integration tests later
 - Tests: construction, frozen/hashability of `RunRef`, serialization round-trip, `data_completeness` default behavior
@@ -73,36 +71,7 @@ Derived from `design-spec-v1.md` (frozen). Each milestone is independently revie
 
 ---
 
-## Revision 1 — `RunRef.entity` migration (completed, prerequisite to Milestone 3)
-
-Design flaw found and fixed before Milestone 3 began: `RunRef` lacked
-`entity`, so two different W&B entities with same-named projects would
-collide as the same identity. See `design-spec-v1.md` Revision Log for
-the full flaw/fix writeup. Updated: `models.py`, `test_models.py`,
-`test_fake_backend.py`, this roadmap, the design spec. No other module
-required changes. All 58 tests pass; lint clean. `ExperimentBackend`
-method signatures (§3) were deliberately left unchanged — see the spec's
-Revision Log for why that's a bounded, separately-justified question.
-
----
-
 ## Milestone 3 — W&B Backend (real implementation)
-
-**Status: implemented, pending live validation (see summary delivered
-alongside this milestone for full detail).** `WandbBackend` is built
-against `wandb==0.28.0`'s documented public API surface, dependency-
-injected for testability, with 29 tests passing against an in-memory
-fake client. Three genuine API-contact ambiguities were found and
-explicitly flagged in code and in the milestone summary rather than
-silently resolved: (1) W&B's public `Runs` paginator has no resumable
-opaque cursor, so `Page.next_cursor` uses a reproducible offset instead;
-(2) `data_completeness` is inferred from `run.state` via a documented-
-but-unverified heuristic; (3) rate-limit retry classification is
-message-substring-based, not status-code-based, since the SDK doesn't
-surface a structured code at this layer. Fixtures are synthetic
-(constructed from documented shapes), not recorded from a live project,
-per `tests/fixtures/README.md`'s Milestone 3 status note — the sandbox
-this was built in has no live W&B credentials or network access.
 
 **Objective:** Implement `backends/wandb_backend.py` against the real W&B API, satisfying the same `ExperimentBackend` contract validated in Milestone 2.
 
@@ -120,23 +89,6 @@ this was built in has no live W&B credentials or network access.
 **Completion criteria:** All `ExperimentBackend` contract tests from Milestone 2 pass against `WandbBackend` using recorded fixtures; `test_connection` correctly distinguishes auth failure from network failure in a manual test against a deliberately bad key.
 
 **Flag-if-triggered:** if W&B's actual pagination model, rate-limit headers, or partial-ingestion signals don't map cleanly onto the `Page[T]` / `data_completeness` abstractions from Milestones 1–2, stop and report — this is exactly the kind of contact-with-reality problem the spec asked to surface rather than paper over.
-
----
-
-## Revision 2 — `ExperimentBackend.list_runs` gains `page_size` (completed, prerequisite to Milestone 4)
-
-Design flaw found and fixed at the start of Milestone 4: spec §4.2's
-`list_runs` tool signature has always included `page_size=25`, but the
-`ExperimentBackend` ABC (§3, frozen in Milestone 2) never had a
-`page_size` parameter — `WandbBackend` only accepted one at construction,
-fixed for the backend's lifetime. This meant the Milestone 4 `list_runs`
-tool had no correct way to honor a caller-supplied `page_size`. See
-`design-spec-v1.md` Revision Log for the full flaw/fix writeup. Updated:
-`backends/base.py`, `backends/fake_backend.py`, `backends/wandb_backend.py`,
-`test_backend_base.py`, `test_fake_backend.py`, `test_wandb_backend.py`,
-this roadmap, the design spec. Strictly additive (one new optional,
-default-`None` parameter) — no other signature, model, or tool contract
-touched. All tests pass; lint clean.
 
 ---
 
@@ -161,8 +113,6 @@ touched. All tests pass; lint clean.
 ---
 
 ## Milestone 5 — `compare_runs`
-
-**Status: implemented.** `analysis/comparison.py` ships a pure `compare_runs(runs: list[Run]) -> ComparisonResult` with no dependency on FastMCP, MCP transport, `server.py`, `WandbBackend`, or any request/response schema — confirmed against the pre-Milestone-5 architecture validation this roadmap requires. The `compare_runs` MCP tool in `server.py` is a thin wrapper: it resolves each `RunRef` into a `Run` via the target backend(s) and calls the pure function directly. Config diff distinguishes "missing" from "explicitly `None`" via a `ConfigValue(present, value)` wrapper (config values are `dict[str, Any]`, so a bare `None` can't double as an absence sentinel). Metric diff's `delta` generalizes to N runs as `max(present) - min(present)`, which collapses to the ordinary pairwise difference at N=2. 23 tests added (18 pure-logic unit tests against hand-constructed `Run` objects in `tests/test_comparison.py`, 5 MCP-layer integration tests via `fastmcp.Client` in `tests/test_server.py`), covering added/removed/changed config params, missing-metric handling, 3- and 4-way comparisons, cross-project and cross-backend refs, duplicate-ref and too-few-runs rejection, and full JSON-serialization round-tripping. All 126 repo tests pass; lint clean; packaging verified from a clean venv (sdist + wheel build, then a fresh install of the wheel with an end-to-end MCP tool-listing smoke test). No design flaws surfaced during implementation.
 
 **Objective:** Implement the pure-diffing tool, the simplest of the compute tools and a dependency for two audit tools later.
 
@@ -202,8 +152,6 @@ touched. All tests pass; lint clean.
 ---
 
 ## Milestone 7 — `audit_ablation`
-
-**Status: implemented.** `analysis/confound.py` ships a pure `audit_ablation(baseline: Run, ablation: Run, claimed_variable: str) -> AblationAudit` with no dependency on FastMCP, MCP transport, `server.py`, or `WandbBackend` — confirmed against the pre-Milestone-7 architecture validation this roadmap requires (see the milestone summary delivered alongside this file). It calls `analysis/comparison.py`'s `compare_runs` directly for the underlying diff rather than duplicating diffing logic, exactly as Milestone 5's completion criteria required. The `audit_ablation` MCP tool in `server.py` is a thin wrapper: it resolves `baseline`/`ablation` into `Run`s via `get_run_summary` (one call per ref, supporting cross-backend pairs the same way `compare_runs` does) and calls the pure function directly. The allowlist (`seed`, `device`, `run_name`, `run_id`, `name`, `id`) is matched by exact, case-insensitive config key — deliberately not by substring, to avoid a real confound (e.g. `device_batch_size`) being silently waved through for containing an allowlisted word. A verdict of `"uncertain"` (distinct from `"clean"`/`"confounded"`) was added for the case where baseline and ablation have identical configs — including `claimed_variable` itself not differing — since asserting `"clean"` in that case would mischaracterize a pair where no ablation of the claimed variable can be confirmed to have occurred at all; this is a deliberate, documented interpretation of the `"uncertain"` verdict slot the spec names but does not otherwise define, not a spec deviation, and is flagged here per this roadmap's own transparency convention rather than left implicit. 32 tests added (23 pure-logic unit tests against hand-constructed `Run` objects in `tests/test_confound.py`, 9 MCP-layer integration tests via `fastmcp.Client` in `tests/test_server.py`), covering all four named adversarial cases from spec §7 exactly as specified, the allowlist's case-insensitivity and non-fuzzy exact-match behavior, the `"uncertain"` case, cross-project/cross-backend ablation pairs, duplicate-ref rejection (reused unchanged from `compare_runs`'s `CompareRunsError`), and full JSON-serialization round-tripping. All 186 repo tests pass; lint clean; packaging verified from a clean venv. No design flaws surfaced during implementation.
 
 **Objective:** Implement the flagship differentiator tool, built on top of `compare_runs` (Milestone 5).
 
@@ -297,78 +245,3 @@ touched. All tests pass; lint clean.
 ---
 
 *Per your instructions: we execute one milestone at a time from here. Each milestone ends with a summary (what was built, why, spec alignment, deviations if any) before moving to the next. Any design flaw discovered during implementation is reported, not silently patched.*
-
-## Milestone 10 summary — Docs, Packaging, Registry Submission
-
-**What was built:** `README.md` was fully rewritten (the Milestone 0
-placeholder is gone) with the one-sentence pitch verbatim from spec §0 at
-the very top, install instructions for pip/Claude Desktop/Claude
-Code/MCP Inspector, a quick-start section with three concrete example
-prompts, a table of all eight tools with their retrieval/diffing/judgment
-kind, an architecture overview with the actual directory tree and the two
-design decisions worth understanding first, real (not aspirational) API
-examples for two tools, the data-handling statement required by spec §1
-point 5, and an explicit "Known Gaps" section. `CONTRIBUTING.md` and
-`CHANGELOG.md` were added (not named individually in the roadmap's
-deliverable list, but squarely within "Docs, Packaging" scope and
-requested explicitly for this milestone's release-quality bar). A
-Show-HN-style launch write-up was drafted at `docs/launch-post.md`,
-framed around the confounded-ablation problem specifically, per spec
-§10. Package version was bumped from the placeholder `0.0.0` to `1.0.0`
-in both `pyproject.toml` and `experiment_audit_mcp/__init__.py`;
-`pyproject.toml` gained classifiers, keywords, and `[project.urls]` for
-release polish.
-
-**Corrective action (flagged, not silent):** `pyproject.toml`'s
-`description` field named "W&B/MLflow" — MLflow is prototyped at the
-interface level (Appendix A) but is v2 scope per spec §10, not shipped in
-v1. This was corrected to "W&B" only, consistent with the README's own
-"v1.0.0, W&B backend only" status line. This is a packaging-metadata
-accuracy fix, not a design or code change, and is called out here per
-this project's own established pattern (see the Milestone 0 correction
-note and the CI-config restoration note surfaced at Milestone 9) rather
-than silently adjusted.
-
-**Name collision check (spec §9 action item, closed):** `experiment-audit-mcp`
-was checked against PyPI (`pip index versions`) and npm (`npm view`) from
-this environment on 2026-07-10; neither registry has an existing package
-under this name. The recommended name from spec §9 is therefore confirmed
-available, and no fallback name is needed.
-
-**Verification performed this milestone:**
-- Full test suite: 233 tests, 100% passing.
-- Lint (`ruff check .`): clean.
-- Packaging: built both sdist and wheel via `python -m build` from a
-  clean `dist/`, installed the wheel into a fresh virtual environment
-  with no dev dependencies, confirmed `import experiment_audit_mcp` and
-  `__version__ == "1.0.0"`, confirmed the `experiment-audit-mcp` console
-  script is on `PATH` and fails fast with a clear `MissingCredentialsError`
-  when `WANDB_API_KEY` is unset (correct behavior per spec §6, not a
-  bug), and confirmed it proceeds past that check into the real W&B SDK's
-  own auth validation when a (dummy) key is set. Reinstalled `pytest`/
-  `ruff` into that same clean environment and re-ran the full suite
-  against the wheel-installed package: still 233/233 passing.
-
-**Deliverables explicitly not performed, and why:** per spec §10's v1
-roadmap, "Publish to MCP Registry; submit to Glama and cursor.directory"
-and the roadmap's own Milestone 10 deliverable list both call for actual
-registry submission. This environment has no outbound network access to
-those services (egress is allowlisted to package registries and a small
-set of source-hosting domains only), so submission was not attempted from
-here — attempting it would either silently fail or require working
-around the sandbox in a way that wouldn't reflect a real submission. This
-mirrors the same honest-gap pattern already established for W&B fixture
-recording (Milestone 3) and the tool-selection eval (Milestone 9): the
-package is publish-ready, and the exact remaining step is named in the
-README's "Known Gaps" section for whoever runs the release from a machine
-with that access.
-
-**Completion criteria check (roadmap's own words):** "Server is
-installable by a stranger following only the README" — verified directly
-above via a from-scratch virtual environment following only the
-documented `pip install` + env-var steps. "listed in the MCP Registry" —
-not yet true, per the gap above. "the launch post is published" — drafted
-and ready (`docs/launch-post.md`), not yet posted, since the repository
-itself isn't public yet from this environment. Two of three completion
-criteria are met; the third is blocked on infrastructure outside this
-environment's reach, not on remaining work within it.

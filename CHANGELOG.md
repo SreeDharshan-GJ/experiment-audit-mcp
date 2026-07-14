@@ -26,7 +26,7 @@ Initial public release. W&B backend only, per the v1 scope in
   design), `docs/implementation-roadmap-v1.md` (milestone-by-milestone
   build history with two logged design revisions), `docs/audit-methods.md`
   (full methodology for every `audit_*` tool), `docs/tool-selection-eval.md`.
-- 233 tests, 100% passing; `ruff check .` clean.
+- 345 tests, 100% passing; `ruff check .` clean.
 
 ### Known gaps at release
 
@@ -52,4 +52,4 @@ Initial public release. W&B backend only, per the v1 scope in
   ABC (no per-call page size) and the `list_runs` MCP tool's spec'd
   signature (`page_size=25`).
 
-[1.0.0]: https://github.com/<your-username>/experiment-audit-mcp/releases/tag/v1.0.0
+[1.0.0]: https://github.com/SreeDharshan-GJ/experiment-audit-mcp/releases/tag/v1.0.0

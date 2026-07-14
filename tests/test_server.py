@@ -101,16 +101,17 @@ async def test_list_runs_returns_run_summary_shape_not_full_run(mcp, fake_backen
     fake_backend.seed_run(_make_run("run1"))
 
     async with Client(mcp) as client:
-        result = await client.call_tool(
-            "list_runs", {"backend": "fake", "project": _PROJECT}
-        )
+        result = await client.call_tool("list_runs", {"backend": "fake", "project": _PROJECT})
 
     assert result.data["next_cursor"] is None
     assert len(result.data["items"]) == 1
     summary = result.data["items"][0]
     # Cheap fields present:
     assert summary["ref"] == {
-        "backend": "fake", "entity": _ENTITY, "project": _PROJECT, "run_id": "run1"
+        "backend": "fake",
+        "entity": _ENTITY,
+        "project": _PROJECT,
+        "run_id": "run1",
     }
     assert summary["name"] == "run-run1"
     assert summary["tags"] == ["baseline"]
@@ -145,11 +146,17 @@ async def test_list_runs_applies_filters_through_the_mcp_layer(mcp, fake_backend
 async def test_list_runs_unknown_backend_returns_structured_error_not_exception(mcp):
     async with Client(mcp) as client:
         result = await client.call_tool(
-            "list_runs", {"backend": "not-a-real-backend", "project": _PROJECT}
+            "list_runs",
+            {"backend": "not-a-real-backend", "project": _PROJECT},
+            raise_on_error=False,
         )
-    assert result.data["error"]["error_type"] == "unknown"
-    assert "not-a-real-backend" in result.data["error"]["message"]
-    assert result.data["error"]["recoverable"] is False
+    # A tool error must set CallToolResult.isError (the MCP protocol's own
+    # error signal), not just return an error-shaped payload that happens
+    # to look structured — see the audit finding on _error_dict.
+    assert result.is_error is True
+    assert result.structured_content["error"]["error_type"] == "unknown"
+    assert "not-a-real-backend" in result.structured_content["error"]["message"]
+    assert result.structured_content["error"]["recoverable"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -184,9 +191,11 @@ async def test_get_run_summary_not_found_returns_structured_error(mcp):
                     "run_id": "does-not-exist",
                 }
             },
+            raise_on_error=False,
         )
-    assert result.data["error"]["error_type"] == "run_not_found"
-    assert result.data["error"]["recoverable"] is False
+    assert result.is_error is True
+    assert result.structured_content["error"]["error_type"] == "run_not_found"
+    assert result.structured_content["error"]["recoverable"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -215,7 +224,10 @@ async def test_get_metric_history_preserves_null_points_over_mcp(mcp, fake_backe
             "get_metric_history",
             {
                 "ref": {
-                    "backend": "fake", "entity": _ENTITY, "project": _PROJECT, "run_id": "run1"
+                    "backend": "fake",
+                    "entity": _ENTITY,
+                    "project": _PROJECT,
+                    "run_id": "run1",
                 },
                 "metric": "loss",
             },
@@ -247,7 +259,10 @@ async def test_get_metric_history_respects_step_range(mcp, fake_backend):
             "get_metric_history",
             {
                 "ref": {
-                    "backend": "fake", "entity": _ENTITY, "project": _PROJECT, "run_id": "run1"
+                    "backend": "fake",
+                    "entity": _ENTITY,
+                    "project": _PROJECT,
+                    "run_id": "run1",
                 },
                 "metric": "loss",
                 "step_range": [1, 3],
@@ -265,12 +280,17 @@ async def test_get_metric_history_not_found_returns_structured_error(mcp, fake_b
             "get_metric_history",
             {
                 "ref": {
-                    "backend": "fake", "entity": _ENTITY, "project": _PROJECT, "run_id": "run1"
+                    "backend": "fake",
+                    "entity": _ENTITY,
+                    "project": _PROJECT,
+                    "run_id": "run1",
                 },
                 "metric": "never_logged",
             },
+            raise_on_error=False,
         )
-    assert result.data["error"]["error_type"] == "run_not_found"
+    assert result.is_error is True
+    assert result.structured_content["error"]["error_type"] == "run_not_found"
 
 
 # ---------------------------------------------------------------------------
@@ -323,12 +343,8 @@ def _ref_input(run_id: str, project: str = _PROJECT) -> dict:
 
 @pytest.mark.asyncio
 async def test_compare_runs_returns_config_and_metric_diff_over_mcp(mcp, fake_backend):
-    fake_backend.seed_run(
-        _make_run("run1", config={"lr": 0.001}, summary_metrics={"reward": 10.0})
-    )
-    fake_backend.seed_run(
-        _make_run("run2", config={"lr": 0.01}, summary_metrics={"reward": 15.0})
-    )
+    fake_backend.seed_run(_make_run("run1", config={"lr": 0.001}, summary_metrics={"reward": 10.0}))
+    fake_backend.seed_run(_make_run("run2", config={"lr": 0.01}, summary_metrics={"reward": 15.0}))
 
     async with Client(mcp) as client:
         result = await client.call_tool(
@@ -359,12 +375,8 @@ async def test_compare_runs_nway_over_mcp(mcp, fake_backend):
 
 @pytest.mark.asyncio
 async def test_compare_runs_cross_project_echoes_project_in_ref_keys(mcp, fake_backend):
-    fake_backend.seed_run(
-        _make_run("run1", project="mamfac", config={"lr": 0.001})
-    )
-    fake_backend.seed_run(
-        _make_run("run2", project="carm-plus-plus", config={"lr": 0.01})
-    )
+    fake_backend.seed_run(_make_run("run1", project="mamfac", config={"lr": 0.001}))
+    fake_backend.seed_run(_make_run("run2", project="carm-plus-plus", config={"lr": 0.01}))
 
     async with Client(mcp) as client:
         result = await client.call_tool(
@@ -383,21 +395,33 @@ async def test_compare_runs_missing_run_returns_structured_error_not_exception(m
 
     async with Client(mcp) as client:
         result = await client.call_tool(
-            "compare_runs", {"refs": [_ref_input("run1"), _ref_input("does-not-exist")]}
+            "compare_runs",
+            {"refs": [_ref_input("run1"), _ref_input("does-not-exist")]},
+            raise_on_error=False,
         )
 
-    assert result.data["error"]["error_type"] == "run_not_found"
+    assert result.is_error is True
+    assert result.structured_content["error"]["error_type"] == "run_not_found"
 
 
 @pytest.mark.asyncio
-async def test_compare_runs_single_ref_returns_structured_error(mcp, fake_backend):
+async def test_compare_runs_single_ref_rejected_by_schema_before_any_backend_call(
+    mcp, fake_backend
+):
     fake_backend.seed_run(_make_run("run1"))
 
+    # **Bugfix coverage:** `refs` now declares `min_length=2` on its
+    # schema (see server.py), so a single-ref call is rejected by
+    # argument validation before compare_runs ever resolves a backend or
+    # calls get_run_summary — unlike before, when this reached
+    # `_compare_runs_pure`'s own "at least 2 runs" check only *after* a
+    # real backend fetch for the one ref supplied. Argument-validation
+    # failures are protocol-level errors (raised by the client), not a
+    # tool-level ToolResult, so this is asserted via the raised
+    # exception rather than an is_error result.
     async with Client(mcp) as client:
-        result = await client.call_tool("compare_runs", {"refs": [_ref_input("run1")]})
-
-    assert result.data["error"]["error_type"] == "unknown"
-    assert "at least 2 runs" in result.data["error"]["message"]
+        with pytest.raises(Exception, match="at least 2 items"):
+            await client.call_tool("compare_runs", {"refs": [_ref_input("run1")]})
 
 
 # ---------------------------------------------------------------------------
@@ -469,10 +493,13 @@ async def test_audit_training_curve_missing_history_returns_structured_error(mcp
     # Deliberately do not seed any metric history for this ref/metric.
     async with Client(mcp) as client:
         result = await client.call_tool(
-            "audit_training_curve", {"ref": _ref_input("run1"), "metric": "never_logged"}
+            "audit_training_curve",
+            {"ref": _ref_input("run1"), "metric": "never_logged"},
+            raise_on_error=False,
         )
 
-    assert result.data["error"]["error_type"] == "run_not_found"
+    assert result.is_error is True
+    assert result.structured_content["error"]["error_type"] == "run_not_found"
 
 
 @pytest.mark.asyncio
@@ -489,9 +516,11 @@ async def test_audit_training_curve_unknown_backend_returns_structured_error(mcp
                 },
                 "metric": "loss",
             },
+            raise_on_error=False,
         )
 
-    assert result.data["error"]["error_type"] == "unknown"
+    assert result.is_error is True
+    assert result.structured_content["error"]["error_type"] == "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -543,15 +572,9 @@ async def test_audit_ablation_seed_only_difference_is_clean_over_mcp(mcp, fake_b
 
 
 @pytest.mark.asyncio
-async def test_audit_ablation_two_nonallowlisted_params_is_confounded_over_mcp(
-    mcp, fake_backend
-):
-    fake_backend.seed_run(
-        _make_run("baseline", config={"lr": 0.001, "batch_size": 32})
-    )
-    fake_backend.seed_run(
-        _make_run("ablation", config={"lr": 0.01, "batch_size": 64})
-    )
+async def test_audit_ablation_two_nonallowlisted_params_is_confounded_over_mcp(mcp, fake_backend):
+    fake_backend.seed_run(_make_run("baseline", config={"lr": 0.001, "batch_size": 32}))
+    fake_backend.seed_run(_make_run("ablation", config={"lr": 0.01, "batch_size": 64}))
 
     async with Client(mcp) as client:
         result = await client.call_tool(
@@ -570,9 +593,7 @@ async def test_audit_ablation_two_nonallowlisted_params_is_confounded_over_mcp(
 
 @pytest.mark.asyncio
 async def test_audit_ablation_partial_data_downgrades_confidence_over_mcp(mcp, fake_backend):
-    fake_backend.seed_run(
-        _make_run("baseline", config={"lr": 0.001}, data_completeness="partial")
-    )
+    fake_backend.seed_run(_make_run("baseline", config={"lr": 0.001}, data_completeness="partial"))
     fake_backend.seed_run(_make_run("ablation", config={"lr": 0.01}))
 
     async with Client(mcp) as client:
@@ -615,9 +636,7 @@ async def test_audit_ablation_evidence_is_full_comparison_over_mcp(mcp, fake_bac
 
 
 @pytest.mark.asyncio
-async def test_audit_ablation_missing_run_returns_structured_error_not_exception(
-    mcp, fake_backend
-):
+async def test_audit_ablation_missing_run_returns_structured_error_not_exception(mcp, fake_backend):
     fake_backend.seed_run(_make_run("baseline", config={"lr": 0.001}))
 
     async with Client(mcp) as client:
@@ -628,9 +647,11 @@ async def test_audit_ablation_missing_run_returns_structured_error_not_exception
                 "ablation": _ref_input("does-not-exist"),
                 "claimed_variable": "lr",
             },
+            raise_on_error=False,
         )
 
-    assert result.data["error"]["error_type"] == "run_not_found"
+    assert result.is_error is True
+    assert result.structured_content["error"]["error_type"] == "run_not_found"
 
 
 @pytest.mark.asyncio
@@ -645,10 +666,12 @@ async def test_audit_ablation_same_ref_returns_structured_error(mcp, fake_backen
                 "ablation": _ref_input("baseline"),
                 "claimed_variable": "lr",
             },
+            raise_on_error=False,
         )
 
-    assert result.data["error"]["error_type"] == "unknown"
-    assert "duplicate RunRefs" in result.data["error"]["message"]
+    assert result.is_error is True
+    assert result.structured_content["error"]["error_type"] == "unknown"
+    assert "duplicate RunRefs" in result.structured_content["error"]["message"]
 
 
 @pytest.mark.asyncio
@@ -668,9 +691,11 @@ async def test_audit_ablation_unknown_backend_returns_structured_error(mcp, fake
                 },
                 "claimed_variable": "lr",
             },
+            raise_on_error=False,
         )
 
-    assert result.data["error"]["error_type"] == "unknown"
+    assert result.is_error is True
+    assert result.structured_content["error"]["error_type"] == "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -754,11 +779,14 @@ async def test_audit_sweep_too_small_returns_insufficient_samples_error(mcp, fak
     _seed_linear_sweep(fake_backend, n=3)
 
     async with Client(mcp) as client:
-        result = await client.call_tool("audit_sweep", {"sweep_ref": _sweep_ref_input()})
+        result = await client.call_tool(
+            "audit_sweep", {"sweep_ref": _sweep_ref_input()}, raise_on_error=False
+        )
 
-    assert result.data["error"]["error_type"] == "insufficient_samples"
-    assert result.data["run_count"] == 3
-    assert result.data["minimum_required"] == 10
+    assert result.is_error is True
+    assert result.structured_content["error"]["error_type"] == "insufficient_samples"
+    assert result.structured_content["run_count"] == 3
+    assert result.structured_content["minimum_required"] == 10
 
 
 @pytest.mark.asyncio
@@ -767,10 +795,13 @@ async def test_audit_sweep_unknown_sweep_id_returns_structured_error(mcp, fake_b
 
     async with Client(mcp) as client:
         result = await client.call_tool(
-            "audit_sweep", {"sweep_ref": _sweep_ref_input(sweep_id="does-not-exist")}
+            "audit_sweep",
+            {"sweep_ref": _sweep_ref_input(sweep_id="does-not-exist")},
+            raise_on_error=False,
         )
 
-    assert result.data["error"]["error_type"] == "unknown"
+    assert result.is_error is True
+    assert result.structured_content["error"]["error_type"] == "unknown"
 
 
 @pytest.mark.asyncio
@@ -786,21 +817,41 @@ async def test_audit_sweep_unknown_backend_returns_structured_error(mcp, fake_ba
                     "sweep_id": "sweep-1",
                 }
             },
+            raise_on_error=False,
         )
 
-    assert result.data["error"]["error_type"] == "unknown"
+    assert result.is_error is True
+    assert result.structured_content["error"]["error_type"] == "unknown"
 
 
 @pytest.mark.asyncio
-async def test_audit_sweep_unsupported_capability_returns_structured_error(mcp):
+async def test_audit_sweep_unsupported_capability_returns_structured_error(mcp, monkeypatch):
     capability_less_backend = FakeBackend(capabilities=set())
     mcp_no_sweeps = build_server(backends={"fake": capability_less_backend})
     capability_less_backend.seed_run(_make_run())
 
-    async with Client(mcp_no_sweeps) as client:
-        result = await client.call_tool("audit_sweep", {"sweep_ref": _sweep_ref_input()})
+    # **Bugfix coverage:** server.py must now reject this via the
+    # up-front `BackendCapability.SWEEPS` check without ever calling
+    # `list_sweeps` on the backend — not merely by catching the
+    # `NotSupportedError` that `list_sweeps` itself raises. Spy on
+    # `list_sweeps` to confirm it is never reached.
+    list_sweeps_calls: list[str] = []
+    original_list_sweeps = capability_less_backend.list_sweeps
 
-    assert result.data["error"]["error_type"] == "backend_unsupported_capability"
+    def _spy_list_sweeps(project: str) -> list:
+        list_sweeps_calls.append(project)
+        return original_list_sweeps(project)
+
+    monkeypatch.setattr(capability_less_backend, "list_sweeps", _spy_list_sweeps)
+
+    async with Client(mcp_no_sweeps) as client:
+        result = await client.call_tool(
+            "audit_sweep", {"sweep_ref": _sweep_ref_input()}, raise_on_error=False
+        )
+
+    assert result.is_error is True
+    assert result.structured_content["error"]["error_type"] == "backend_unsupported_capability"
+    assert list_sweeps_calls == []
 
 
 @pytest.mark.asyncio

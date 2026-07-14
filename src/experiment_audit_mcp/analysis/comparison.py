@@ -168,8 +168,7 @@ def compare_runs(runs: list[Run]) -> ComparisonResult:
     refs = [run.ref for run in runs]
     if len(set(refs)) != len(refs):
         raise CompareRunsError(
-            "compare_runs received duplicate RunRefs; every run being "
-            "compared must be distinct."
+            "compare_runs received duplicate RunRefs; every run being compared must be distinct."
         )
 
     return ComparisonResult(
@@ -222,11 +221,7 @@ def _diff_metrics(runs: list[Run]) -> list[MetricDiffEntry]:
         missing_somewhere = len(present_values) != len(runs)
         differs_in_value = len(_unique(present_values)) > 1
         if missing_somewhere or differs_in_value:
-            delta = (
-                max(present_values) - min(present_values)
-                if len(present_values) >= 2
-                else None
-            )
+            delta = max(present_values) - min(present_values) if len(present_values) >= 2 else None
             entries.append(MetricDiffEntry(metric=metric, values=values, delta=delta))
     return entries
 

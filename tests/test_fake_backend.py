@@ -59,9 +59,7 @@ def test_fake_backend_default_capabilities_include_sweeps():
 async def test_fake_backend_default_connection_status_is_authenticated():
     backend = FakeBackend()
     status = await backend.test_connection()
-    assert status == ConnectionStatus(
-        backend="fake", authenticated=True, scopes_detected=["read"]
-    )
+    assert status == ConnectionStatus(backend="fake", authenticated=True, scopes_detected=["read"])
 
 
 @pytest.mark.asyncio
@@ -168,6 +166,23 @@ async def test_list_runs_filters_by_tags_excludes_non_matching():
 
     page = await backend.list_runs("mamfac", filters=RunFilter(tags=["ablation"]))
     assert page.items == []
+
+
+@pytest.mark.asyncio
+async def test_list_runs_empty_tags_filter_matches_everything():
+    # RunFilter(tags=[]) is falsy-but-not-None: `_matches`' tags check is
+    # `filters.tags is not None and not set(filters.tags).issubset(run.tags)`.
+    # An empty list is a legitimate (if unusual) caller input -- e.g. a
+    # client that always passes `tags=selected_tags` and the user
+    # selected none -- and the empty set is trivially a subset of any
+    # run's tags, so this must behave identically to "no tag filter"
+    # rather than excluding every run or raising.
+    backend = FakeBackend()
+    backend.seed_run(_make_run("run1", tags=["baseline"]))
+    backend.seed_run(_make_run("run2", tags=[]))
+
+    page = await backend.list_runs("mamfac", filters=RunFilter(tags=[]))
+    assert {r.ref.run_id for r in page.items} == {"run1", "run2"}
 
 
 @pytest.mark.asyncio
@@ -361,4 +376,3 @@ async def test_adversarial_correlated_hyperparameters_sweep_representable():
     # batch_size grid.
     assert sorted(lrs, reverse=True) == lrs
     assert sorted(batch_sizes, reverse=True) == batch_sizes
-

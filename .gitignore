@@ -23,3 +23,7 @@ venv/
 
 # Weights & Biases
 wandb/
+
+# Scratch output written by examples/run_experiment.py and read back by
+# examples/run_audit.py -- a runtime artifact, not a repo file.
+real_results.json

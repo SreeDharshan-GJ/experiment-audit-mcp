@@ -217,9 +217,7 @@ def test_sweep_construction():
 
 def test_sweep_target_metric_is_optional():
     ref = RunRef(backend="wandb", entity="test-entity", project="mamfac", run_id="sweep-scope")
-    sweep = Sweep(
-        ref=ref, sweep_id="sweep-001", method="grid", run_refs=[], target_metric=None
-    )
+    sweep = Sweep(ref=ref, sweep_id="sweep-001", method="grid", run_refs=[], target_metric=None)
     assert sweep.target_metric is None
 
 
@@ -288,3 +286,87 @@ def test_page_to_dict_passes_through_plain_non_dataclass_items():
     page: Page[str] = Page(items=["project-a", "project-b"], next_cursor=None)
     serialized = page.to_dict()
     assert serialized["items"] == ["project-a", "project-b"]
+
+
+def test_page_to_dict_handles_mixed_dataclass_and_plain_items():
+    # A page is not guaranteed to be homogeneous at the type-checker
+    # level (Page[T] doesn't forbid it at runtime) — _serialize_item
+    # dispatches per-item via hasattr(item, "to_dict"), not once for
+    # the whole page, so a page mixing a to_dict-having item with a
+    # plain item must serialize each correctly rather than picking one
+    # code path for the whole list based on the first item.
+    run = _make_run()
+    page = Page(items=[run, "plain-string", 7], next_cursor=None)
+    serialized = page.to_dict()
+    assert serialized["items"][0]["ref"]["run_id"] == "abc123"
+    assert serialized["items"][1] == "plain-string"
+    assert serialized["items"][2] == 7
+
+
+# ---------------------------------------------------------------------------
+# Serialization independence — mutating a to_dict() result must never
+# mutate the source object. Run/MetricHistory/Sweep's to_dict() wrap their
+# mutable fields (tags, config, summary_metrics, points, run_refs) in
+# dict()/list() copies specifically for this; nothing above exercises that
+# independence directly, so a future edit that drops one of those copies
+# (e.g. "config": self.config instead of dict(self.config)) would pass
+# every existing test here while silently reintroducing caller-visible
+# aliasing between serialized output and live domain objects — mutating
+# one consumer's serialized dict could then corrupt another consumer's
+# reference to the same Run/MetricHistory/Sweep.
+# ---------------------------------------------------------------------------
+
+
+def test_run_to_dict_mutation_does_not_affect_source_run():
+    run = _make_run()
+    serialized = run.to_dict()
+
+    serialized["tags"].append("mutated")
+    serialized["config"]["learning_rate"] = -999
+    serialized["summary_metrics"]["final_reward"] = -999
+
+    assert run.tags == ["baseline"]
+    assert run.config["learning_rate"] == 0.001
+    assert run.summary_metrics["final_reward"] == 12.5
+
+
+def test_metric_history_to_dict_mutation_does_not_affect_source_points_list():
+    ref = RunRef(backend="wandb", entity="test-entity", project="mamfac", run_id="abc123")
+    history = MetricHistory(ref=ref, metric_name="reward", points=[MetricPoint(step=0, value=1.0)])
+    serialized = history.to_dict()
+
+    serialized["points"].append({"step": 99, "value": 99.0})
+
+    assert len(history.points) == 1
+
+
+def test_sweep_to_dict_mutation_does_not_affect_source_run_refs_list():
+    ref = RunRef(backend="wandb", entity="test-entity", project="mamfac", run_id="sweep-scope")
+    run_refs = [RunRef(backend="wandb", entity="test-entity", project="mamfac", run_id="run1")]
+    sweep = Sweep(ref=ref, sweep_id="sweep-001", method="bayes", run_refs=run_refs)
+    serialized = sweep.to_dict()
+
+    serialized["run_refs"].append({"backend": "x", "entity": "x", "project": "x", "run_id": "x"})
+
+    assert len(sweep.run_refs) == 1
+
+
+# ---------------------------------------------------------------------------
+# RunRef — malformed/empty-string field behavior pin
+# ---------------------------------------------------------------------------
+
+
+def test_runref_currently_accepts_empty_string_fields_without_validation():
+    # RunRef performs no validation on its string fields today — an
+    # empty-string backend/entity/project/run_id is silently accepted
+    # and produces a normal, hashable, "valid-looking" RunRef rather
+    # than raising. This test does not assert that this is the *right*
+    # behavior (that's a product decision out of scope for this test
+    # suite), only that it is the *current, intentional-until-changed*
+    # behavior — so a future change to add/relax validation here shows
+    # up as a deliberate, reviewed diff to this test rather than an
+    # unnoticed behavior change with no test noticing either direction.
+    ref = RunRef(backend="", entity="", project="", run_id="")
+    assert ref.backend == ""
+    run = _make_run(ref=ref)
+    assert run.to_dict()["ref"] == {"backend": "", "entity": "", "project": "", "run_id": ""}

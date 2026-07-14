@@ -171,14 +171,19 @@ class ConfidenceAssessor(Protocol[RuleFindingT, ConfidenceT]):
     quantity, contradictions, signal agreement, known failure modes,
     and missing information), the *computation* lives entirely in
     `confidence.py`; this `Protocol` only names the call site.
+
+    Matches `confidence.py`'s actual, documented contract: a
+    `ConfidenceAssessor` scores each hypothesis from the `Observation`s
+    and `assumptions` that hypothesis itself already carries -- it
+    "never talks to a backend ... never generates hypotheses" and, per
+    that module's docstring, is not a function of `ObservationSet` or
+    rule findings at all. So this call site passes `hypotheses`
+    (`HypothesisGenerator`'s output), not `observations` and
+    `rule_findings`.
     """
 
-    def assess(
-        self,
-        observations: ObservationSet,
-        rule_findings: Sequence[RuleFindingT],
-    ) -> ConfidenceT:
-        """Return the computed confidence for `rule_findings`."""
+    def assess(self, hypotheses: Sequence[HypothesisT]) -> ConfidenceT:
+        """Return the computed confidence for `hypotheses`."""
         ...
 
 
@@ -276,7 +281,7 @@ class ReasoningResult(Generic[HypothesisT, RuleFindingT, ConfidenceT, JudgmentT,
             `observations` and `hypotheses`. Empty when the injected
             rule engine is a `NullRuleEngine` (the default).
         confidence: The confidence `ConfidenceAssessor` computed for
-            `rule_findings`.
+            `hypotheses`.
         judgments: Every judgment `JudgmentGenerator` derived from
             `rule_findings` and `confidence`.
         recommendations: Every recommendation `RecommendationGenerator`
@@ -406,7 +411,7 @@ class ScientificReasoningEngine(
         observations = self._observation_extractor.extract(evidence)
         hypotheses = tuple(self._hypothesis_generator.generate(observations))
         rule_findings = tuple(self._rule_engine.evaluate(observations, hypotheses))
-        confidence = self._confidence_assessor.assess(observations, rule_findings)
+        confidence = self._confidence_assessor.assess(hypotheses)
         judgments = tuple(self._judgment_generator.generate(rule_findings, confidence))
         recommendations = tuple(self._recommendation_generator.generate(judgments))
 

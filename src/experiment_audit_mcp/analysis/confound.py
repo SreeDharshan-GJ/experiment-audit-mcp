@@ -48,8 +48,7 @@ _METHOD_BASE = (
     "(seed, device, run name/id fields); see docs/audit-methods.md#ablation"
 )
 _PARTIAL_DATA_SUFFIX = (
-    " (confidence downgraded to low: partial data on at least one run, "
-    "per design-spec-v1.md §5)"
+    " (confidence downgraded to low: partial data on at least one run, per design-spec-v1.md §5)"
 )
 
 # -- Allowlist ---------------------------------------------------------
@@ -69,9 +68,7 @@ _PARTIAL_DATA_SUFFIX = (
 # docs/audit-methods.md#ablation), not an oversight: refusing to
 # recognize an intentional param is far less damaging than silently
 # hiding a real confound.
-ALLOWLIST_PARAMS: frozenset[str] = frozenset(
-    {"seed", "device", "run_name", "run_id", "name", "id"}
-)
+ALLOWLIST_PARAMS: frozenset[str] = frozenset({"seed", "device", "run_name", "run_id", "name", "id"})
 
 
 @dataclass(frozen=True)
@@ -192,9 +189,7 @@ def audit_ablation(baseline: Run, ablation: Run, claimed_variable: str) -> Ablat
             param=entry.param,
             baseline_value=entry.values[baseline.ref].value,
             ablation_value=entry.values[ablation.ref].value,
-            likely_intentional=(
-                entry.param == claimed_variable or _is_allowlisted(entry.param)
-            ),
+            likely_intentional=(entry.param == claimed_variable or _is_allowlisted(entry.param)),
         )
         for entry in comparison.config_diff
     ]

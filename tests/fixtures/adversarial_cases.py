@@ -186,9 +186,7 @@ def _build_two_nonallowlisted_backend() -> FakeBackend:
     backend.seed_run(
         _run("baseline", config={"learning_rate": 0.001, "batch_size": 32, "seed": 42})
     )
-    backend.seed_run(
-        _run("ablation", config={"learning_rate": 0.01, "batch_size": 64, "seed": 42})
-    )
+    backend.seed_run(_run("ablation", config={"learning_rate": 0.01, "batch_size": 64, "seed": 42}))
     return backend
 
 
@@ -286,7 +284,7 @@ def _assert_partial_data(result: dict[str, Any]) -> None:
 CASE_PARTIAL_DATA_RUN = AdversarialCase(
     name="partial_data_run",
     spec_ref=(
-        "A run mid-ingestion (data_completeness: \"partial\") -> any audit "
+        'A run mid-ingestion (data_completeness: "partial") -> any audit '
         "tool touching it must downgrade confidence and explain why."
     ),
     build_backend=_build_partial_data_backend,

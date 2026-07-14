@@ -12,12 +12,123 @@ logged NaN values mid-curve").
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Generic, Literal, TypeVar
 
 DataCompleteness = Literal["complete", "partial", "unknown"]
 _VALID_DATA_COMPLETENESS = {"complete", "partial", "unknown"}
+
+# -- JSON-safety sanitization (Audit #9 security/robustness finding) --------
+#
+# This module's own docstring promises that every model's `to_dict()`
+# "produces a JSON-serializable structure". That promise was not actually
+# enforced anywhere: `Run.config`/`Run.summary_metrics` and
+# `MetricPoint.value` are populated from data a *backend* controls (a W&B
+# run's logged config/summary/history), not data this codebase validates
+# on the way in (see backends/wandb_backend.py's `_to_run`, which does
+# `dict(wandb_run.config or {})` unmodified). Three concrete, reproducible
+# failure modes follow from trusting that data to already be JSON-safe:
+#
+# 1. A real Python `float('nan')`/`float('inf')` (as opposed to the string
+#    sentinels `"NaN"`/`"Infinity"` the wandb API is documented to emit)
+#    reaching `json.dumps` with its default `allow_nan=True` produces the
+#    bare tokens `NaN`/`Infinity` in the output — valid to Python's own
+#    lenient decoder but not valid JSON per RFC 8259, so any
+#    standards-compliant MCP client (most non-Python clients, strict
+#    validators) fails to parse the response.
+# 2. A hyperparameter logged as a numpy scalar (`numpy.float32`,
+#    `numpy.int64` — extremely common in ML config dicts) or any other
+#    object without native JSON support raises a bare `TypeError` out of
+#    the serializer, after the tool has already returned — bypassing this
+#    codebase's entire "structured errors, not bare exceptions cross the
+#    MCP boundary" contract (server.py's module docstring) for exactly the
+#    kind of malformed/adversarial backend response this contract exists
+#    to guard against.
+# 3. A pathologically large or deeply nested config/summary blob (a
+#    crafted or corrupted run) costs unbounded memory/CPU to serialize and
+#    transmit, with no limit anywhere in this codebase today.
+#
+# `_json_safe` is the single choke point that makes the docstring's promise
+# actually true: every value written into a `to_dict()` output for
+# externally-sourced data is routed through it first.
+
+_MAX_SANITIZE_DEPTH = 20
+_MAX_CONTAINER_ITEMS = 2000
+_MAX_STRING_LENGTH = 20_000
+_TRUNCATION_MARKER = "<truncated>"
+
+
+def _json_safe(value: Any, *, _depth: int = 0) -> Any:
+    """Recursively coerce `value` into a structure safe to pass to
+    `json.dumps` — no NaN/Infinity floats, no non-JSON-native types, no
+    unbounded depth/size. Never raises: anything it can't confidently
+    represent is replaced with a `repr()`-based fallback (length-capped)
+    rather than propagating an exception across the MCP boundary.
+    """
+    if _depth > _MAX_SANITIZE_DEPTH:
+        return _TRUNCATION_MARKER
+
+    if value is None or isinstance(value, (bool, int)):
+        return value
+
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            # Matches this codebase's own established convention (spec
+            # §2): a non-finite numeric reading is represented as `None`,
+            # the same way a logged NaN/null metric point already is —
+            # never a raw token that isn't valid JSON.
+            return None
+        return value
+
+    if isinstance(value, str):
+        if len(value) > _MAX_STRING_LENGTH:
+            return value[:_MAX_STRING_LENGTH] + _TRUNCATION_MARKER
+        return value
+
+    if isinstance(value, dict):
+        items = list(value.items())
+        truncated = len(items) > _MAX_CONTAINER_ITEMS
+        result: dict[str, Any] = {}
+        for key, val in items[:_MAX_CONTAINER_ITEMS]:
+            # JSON object keys must be strings; a malformed backend
+            # response could carry any hashable as a dict key.
+            safe_key = key if isinstance(key, str) else repr(key)
+            result[safe_key] = _json_safe(val, _depth=_depth + 1)
+        if truncated:
+            result[f"_{_TRUNCATION_MARKER}_extra_keys"] = len(items) - _MAX_CONTAINER_ITEMS
+        return result
+
+    if isinstance(value, (list, tuple)):
+        truncated = len(value) > _MAX_CONTAINER_ITEMS
+        result_list = [_json_safe(v, _depth=_depth + 1) for v in value[:_MAX_CONTAINER_ITEMS]]
+        if truncated:
+            result_list.append(_TRUNCATION_MARKER)
+        return result_list
+
+    # Common escape hatch for numpy/pandas scalar types (float32, int64,
+    # ...), which are not JSON-native but expose `.item()` to convert to
+    # the equivalent native Python type. Guarded: `.item()` is only ever
+    # called on something that isn't already one of the JSON-native types
+    # handled above, and any failure falls through to the repr() fallback.
+    item_method = getattr(value, "item", None)
+    if callable(item_method):
+        try:
+            return _json_safe(item_method(), _depth=_depth + 1)
+        except Exception:  # noqa: BLE001 - defensive fallback, never raise
+            pass
+
+    # Last resort: never let an unrecognized type raise TypeError out of
+    # json.dumps later. A capped repr() preserves some diagnostic value
+    # without risking an unbounded string from a pathological __repr__.
+    try:
+        text = repr(value)
+    except Exception:  # noqa: BLE001 - even repr() can raise on a broken object
+        text = f"<unrepresentable {type(value).__name__}>"
+    if len(text) > _MAX_STRING_LENGTH:
+        text = text[:_MAX_STRING_LENGTH] + _TRUNCATION_MARKER
+    return text
 
 
 @dataclass(frozen=True)
@@ -76,14 +187,18 @@ class Run:
             )
 
     def to_dict(self) -> dict[str, Any]:
+        # `config`/`summary_metrics` are backend-controlled data (a W&B
+        # run's logged config/summary), not validated on the way in — see
+        # `_json_safe`'s module-level docstring above for the concrete
+        # malformed-response failure modes this guards against.
         return {
             "ref": _runref_to_dict(self.ref),
             "name": self.name,
             "tags": list(self.tags),
             "status": self.status,
             "created_at": self.created_at.isoformat(),
-            "config": dict(self.config),
-            "summary_metrics": dict(self.summary_metrics),
+            "config": _json_safe(dict(self.config)),
+            "summary_metrics": _json_safe(dict(self.summary_metrics)),
             "data_completeness": self.data_completeness,
         }
 
@@ -101,7 +216,14 @@ class MetricPoint:
     value: float | None
 
     def to_dict(self) -> dict[str, Any]:
-        return {"step": self.step, "value": self.value}
+        # `value` originates from a backend's metric history and, for the
+        # real W&B backend, is expected to already be normalized to
+        # finite-float-or-None (see wandb_backend._normalize_metric_value)
+        # — but MetricPoint can also be constructed directly (any backend,
+        # or a test/fixture), so this stays defensive rather than trusting
+        # that normalization always ran. `_json_safe` is a no-op for an
+        # already-finite float or None.
+        return {"step": self.step, "value": _json_safe(self.value)}
 
 
 @dataclass

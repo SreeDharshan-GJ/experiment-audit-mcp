@@ -284,13 +284,9 @@ class ObservationExtractor:
         if plateau_window < 2:
             raise ValueError(f"plateau_window must be >= 2, got {plateau_window}.")
         if plateau_cv_threshold < 0:
-            raise ValueError(
-                f"plateau_cv_threshold must be >= 0, got {plateau_cv_threshold}."
-            )
+            raise ValueError(f"plateau_cv_threshold must be >= 0, got {plateau_cv_threshold}.")
         if variance_cv_threshold < 0:
-            raise ValueError(
-                f"variance_cv_threshold must be >= 0, got {variance_cv_threshold}."
-            )
+            raise ValueError(f"variance_cv_threshold must be >= 0, got {variance_cv_threshold}.")
         self._plateau_window = plateau_window
         self._plateau_cv_threshold = plateau_cv_threshold
         self._variance_cv_threshold = variance_cv_threshold
@@ -581,8 +577,7 @@ class ObservationExtractor:
             Observation(
                 kind=ObservationKind.MULTIPLE_RANDOM_SEEDS,
                 statement=(
-                    f"{len(distinct_seeds)} distinct random seeds were recorded: "
-                    f"{distinct_seeds}."
+                    f"{len(distinct_seeds)} distinct random seeds were recorded: {distinct_seeds}."
                 ),
                 subjects=subjects,
                 measurements={"seeds": distinct_seeds},
@@ -769,9 +764,7 @@ class ObservationExtractor:
     # Internal
     # ------------------------------------------------------------------
 
-    def _detect_plateau(
-        self, present: Sequence[MetricPoint]
-    ) -> tuple[int, int, float] | None:
+    def _detect_plateau(self, present: Sequence[MetricPoint]) -> tuple[int, int, float] | None:
         """Find the longest contiguous flat run in `present`, if any.
 
         Returns `(start_index, end_index, coefficient_of_variation)`

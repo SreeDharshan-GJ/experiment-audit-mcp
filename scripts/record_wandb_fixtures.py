@@ -32,6 +32,8 @@ from pathlib import Path
 
 try:
     import wandb.apis.public as wandb_public
+
+    import wandb
 except ImportError:
     print("Install the project first: pip install -e '.[dev]'", file=sys.stderr)
     raise

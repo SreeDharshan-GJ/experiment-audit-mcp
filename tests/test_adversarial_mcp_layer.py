@@ -43,9 +43,18 @@ async def test_spec_section_7_adversarial_case_through_mcp_layer(case):
     mcp = build_server(backends={"fake": backend})
 
     async with Client(mcp) as client:
-        result = await client.call_tool(case.tool_name, case.tool_args())
+        # **Bugfix note:** now that structured tool errors correctly set
+        # CallToolResult.isError (see server.py's _error_dict fix), a
+        # case like sweep_too_small — which asserts on an
+        # insufficient_samples error payload — would otherwise be turned
+        # into a raised ToolError by the client's default
+        # raise_on_error=True before case.assert_result ever saw it.
+        # raise_on_error=False preserves this harness's original
+        # "assert on the returned payload, error or not" behavior for
+        # every case.
+        result = await client.call_tool(case.tool_name, case.tool_args(), raise_on_error=False)
 
-    case.assert_result(result.data)
+    case.assert_result(result.structured_content)
 
 
 def test_all_six_spec_section_7_cases_are_present():

@@ -525,9 +525,7 @@ class JudgmentGenerator:
         key = str(getattr(hypothesis, "kind", "")).lower()
         return _HYPOTHESIS_KIND_TO_JUDGMENT_KIND.get(key)
 
-    def _build_statement(
-        self, kind: JudgmentKind, hypotheses: tuple[Hypothesis, ...]
-    ) -> str:
+    def _build_statement(self, kind: JudgmentKind, hypotheses: tuple[Hypothesis, ...]) -> str:
         """Compose the literal, human-readable `Judgment.statement`.
 
         Prefixes `kind`'s canonical label, then appends the specifics

@@ -532,6 +532,199 @@ async def test_get_run_summary_gives_up_after_max_retries(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# REGRESSION TESTS — backend audit findings
+# ---------------------------------------------------------------------------
+#
+# Each test below corresponds to one confirmed bug found during the
+# audit of wandb_backend.py. See the module's inline "**Bugfix:**"
+# comments at each fix site for the full explanation.
+
+
+class _ShrinkingRunsPage:
+    """A paginator double that returns fewer items than `per_page` while
+    still reporting `.more = True` — simulating a live project where rows
+    are removed/filtered between the server's "more available" check and
+    the actual page fetch. Used to prove next_cursor tracks the number of
+    items *actually returned*, not the requested page size."""
+
+    def __init__(self, items: list[_FakeWandbRun], more: bool) -> None:
+        self._items = items
+        self.more = more
+
+    def __getitem__(self, index):
+        return self._items
+
+
+@pytest.mark.asyncio
+async def test_list_runs_next_cursor_reflects_items_actually_returned():
+    """Bug: next_cursor was computed as `offset + per_page` whenever
+    `has_more` was True, instead of `offset + len(page_items)`. A
+    paginator that returns fewer items than requested while still
+    reporting more data available would cause the next page's fetch to
+    silently skip runs. Regression-tests the fix."""
+    two_runs = [_make_run(run_id="r0"), _make_run(run_id="r1")]
+
+    class _ShortPageClient(_FakeWandbApiClient):
+        def runs(self, path, filters=None, per_page=50, order="+created_at"):
+            self.runs_calls.append(
+                {"path": path, "filters": filters, "per_page": per_page, "order": order}
+            )
+            return _ShrinkingRunsPage(two_runs, more=True)
+
+    client = _ShortPageClient(default_entity="dash-research")
+    backend = WandbBackend(
+        credentials=WandbCredentials(api_key="fake-key", entity="dash-research"),
+        client=client,
+        page_size=5,
+    )
+
+    page = await backend.list_runs("mamfac")
+
+    assert [r.ref.run_id for r in page.items] == ["r0", "r1"]
+    # Must advance by the 2 items actually returned, NOT by per_page (5).
+    assert page.next_cursor == "2"
+
+
+@pytest.mark.asyncio
+async def test_list_runs_rejects_non_positive_page_size():
+    """Bug: page_size was never validated. page_size=0 (or negative)
+    produces a zero-length/backwards slice every call while `has_more`
+    stays True, so next_cursor never advances -- a non-terminating
+    pagination loop for any caller that loops until next_cursor is None."""
+    client = _FakeWandbApiClient(default_entity="dash-research", runs_by_project={"mamfac": []})
+    backend = WandbBackend(
+        credentials=WandbCredentials(api_key="fake-key", entity="dash-research"), client=client
+    )
+
+    with pytest.raises(ValueError):
+        await backend.list_runs("mamfac", page_size=0)
+
+    with pytest.raises(ValueError):
+        await backend.list_runs("mamfac", page_size=-3)
+
+
+@pytest.mark.asyncio
+async def test_get_metric_history_uses_fresh_client_when_not_injected(monkeypatch):
+    """Bug: get_metric_history called `self._client.run(...)` directly,
+    reusing the single long-lived `Api()` instance for the backend's
+    whole lifetime -- exactly the caching-staleness failure mode
+    documented in `__init__` and already worked around in `list_runs`
+    and `get_run_summary`, just never applied here. A still-running run's
+    metric history would freeze at its first-fetched snapshot forever.
+    Regression-tests that a fresh client is constructed per call when no
+    client was injected (i.e. the real, non-test code path)."""
+    import wandb.apis.public as real_wandb_public
+
+    shared_run = _make_run(run_id="r1", history=[{"_step": 0, "reward": 1.0}])
+    construction_count = {"n": 0}
+
+    def fake_api(api_key):
+        construction_count["n"] += 1
+        return _FakeWandbApiClient(runs_by_path={"dash-research/mamfac/r1": shared_run})
+
+    monkeypatch.setattr(real_wandb_public, "Api", fake_api)
+
+    backend = WandbBackend(
+        credentials=WandbCredentials(api_key="fake-key", entity="dash-research"),
+        client=None,
+    )
+    baseline = construction_count["n"]  # accounts for the __init__-time construction
+    ref = RunRef(backend="wandb", entity="dash-research", project="mamfac", run_id="r1")
+
+    await backend.get_metric_history(ref, "reward")
+    await backend.get_metric_history(ref, "reward")
+
+    assert construction_count["n"] == baseline + 2
+
+
+def test_list_sweeps_uses_fresh_client_when_not_injected(monkeypatch):
+    """Bug: list_sweeps called `self._client.project(...)` directly,
+    reusing the same long-lived `Api()` instance rather than following
+    the fresh-client-per-call pattern used everywhere else in this
+    backend. A sweep that gained new runs after the first `list_sweeps`
+    call would keep reporting the original, stale run set for the life
+    of the process. Regression-tests that a fresh client is constructed
+    per call when no client was injected."""
+    import wandb.apis.public as real_wandb_public
+
+    sweep = _FakeWandbSweep(id="sweep1", config={"method": "grid"}, run_ids=["r1"])
+    construction_count = {"n": 0}
+
+    def fake_api(api_key):
+        construction_count["n"] += 1
+        return _FakeWandbApiClient(
+            default_entity="dash-research", sweeps_by_project={"mamfac": [sweep]}
+        )
+
+    monkeypatch.setattr(real_wandb_public, "Api", fake_api)
+
+    backend = WandbBackend(
+        credentials=WandbCredentials(api_key="fake-key", entity="dash-research"),
+        client=None,
+    )
+    baseline = construction_count["n"]
+
+    backend.list_sweeps("mamfac")
+    backend.list_sweeps("mamfac")
+
+    assert construction_count["n"] == baseline + 2
+
+
+@pytest.mark.asyncio
+async def test_not_found_error_is_not_spuriously_retried_when_id_contains_status_digits(
+    monkeypatch,
+):
+    """Bug: `_is_retryable` did a bare substring check (`"502" in
+    message`), so a permanent `WandbRunNotFoundError` whose message
+    embeds the run id verbatim (e.g. a run literally named "run502")
+    looked like a retryable 502 and was retried up to `_MAX_RETRIES`
+    times (~60s of added latency, per the real backoff schedule) before
+    the not-found error was finally surfaced. Regression-tests that the
+    lookup now fails fast (a single call) instead of being retried."""
+    from experiment_audit_mcp.backends import wandb_backend as wb_module
+
+    monkeypatch.setattr(wb_module.time, "sleep", lambda _seconds: None)
+
+    call_count = {"n": 0}
+
+    class NotFoundClient(_FakeWandbApiClient):
+        def run(self, path):
+            call_count["n"] += 1
+            raise Exception("not found")
+
+    client = NotFoundClient()
+    backend = WandbBackend(
+        credentials=WandbCredentials(api_key="fake-key", entity="dash-research"), client=client
+    )
+    # The run id itself contains "502" as a plain substring -- this is
+    # exactly what defeated the old bare-substring retry check.
+    ref = RunRef(backend="wandb", entity="dash-research", project="mamfac", run_id="run502")
+
+    with pytest.raises(WandbRunNotFoundError):
+        await backend.get_run_summary(ref)
+
+    assert call_count["n"] == 1
+
+
+@pytest.mark.asyncio
+async def test_is_retryable_still_matches_real_status_codes_after_fix():
+    """Sanity check accompanying the fix above: word-boundary matching
+    must not regress detection of genuine retryable transport errors."""
+    from experiment_audit_mcp.backends.wandb_backend import _is_retryable
+
+    assert _is_retryable(Exception("429 Too Many Requests")) is True
+    assert _is_retryable(Exception("Error 502: Bad Gateway")) is True
+    assert _is_retryable(Exception("503 Service Unavailable")) is True
+    assert _is_retryable(Exception("request timeout")) is True
+    assert _is_retryable(Exception("rate limit exceeded")) is True
+    assert _is_retryable(Exception("rate_limit_exceeded")) is True
+    # And must NOT match digits that are merely embedded in an unrelated
+    # identifier (the false-positive this fix closes).
+    assert _is_retryable(Exception("no run found at team/proj/run502")) is False
+    assert _is_retryable(Exception("no run found at team/proj503/run1")) is False
+
+
+# ---------------------------------------------------------------------------
 # capabilities (Milestone 3 explicitly does not implement list_sweeps)
 # ---------------------------------------------------------------------------
 

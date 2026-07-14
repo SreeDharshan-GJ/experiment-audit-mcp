@@ -412,13 +412,9 @@ class HypothesisGenerator:
                 for `POSSIBLE_DATA_LEAKAGE` to fire.
         """
         if min_confound_params < 2:
-            raise ValueError(
-                f"min_confound_params must be >= 2, got {min_confound_params}."
-            )
+            raise ValueError(f"min_confound_params must be >= 2, got {min_confound_params}.")
         if not (0.0 < data_leakage_ratio <= 1.0):
-            raise ValueError(
-                f"data_leakage_ratio must be in (0.0, 1.0], got {data_leakage_ratio}."
-            )
+            raise ValueError(f"data_leakage_ratio must be in (0.0, 1.0], got {data_leakage_ratio}.")
         self._min_confound_params = min_confound_params
         self._data_leakage_ratio = data_leakage_ratio
 
@@ -505,17 +501,15 @@ class HypothesisGenerator:
                 continue
             elif obs.kind is ObservationKind.TRAINING_PLATEAU_DETECTED:
                 plateau_obs.append(obs)
-                by_run.setdefault(obs.subjects[0], {}).setdefault(obs.metric, {})[
-                    "plateau"
-                ] = obs
+                by_run.setdefault(obs.subjects[0], {}).setdefault(obs.metric, {})["plateau"] = obs
             elif obs.kind is ObservationKind.METRIC_INCREASING:
-                by_run.setdefault(obs.subjects[0], {}).setdefault(obs.metric, {})[
-                    "increasing"
-                ] = obs
+                by_run.setdefault(obs.subjects[0], {}).setdefault(obs.metric, {})["increasing"] = (
+                    obs
+                )
             elif obs.kind is ObservationKind.METRIC_DECREASING:
-                by_run.setdefault(obs.subjects[0], {}).setdefault(obs.metric, {})[
-                    "decreasing"
-                ] = obs
+                by_run.setdefault(obs.subjects[0], {}).setdefault(obs.metric, {})["decreasing"] = (
+                    obs
+                )
 
         for obs in nan_obs:
             detected = _detect_metric_instability(obs)
@@ -809,9 +803,7 @@ class HypothesisGenerator:
     # Configuration hypotheses
     # ------------------------------------------------------------------
 
-    def generate_from_configuration(
-        self, observations: Sequence[Observation]
-    ) -> list[Hypothesis]:
+    def generate_from_configuration(self, observations: Sequence[Observation]) -> list[Hypothesis]:
         """Hypothesize from cross-run configuration: configuration
         confound and missing baseline.
 
@@ -870,14 +862,10 @@ class HypothesisGenerator:
                 groups.setdefault(frozenset(obs.subjects), []).append(obs)
 
         for group_obs in groups.values():
-            confound_match = _detect_configuration_confound(
-                group_obs, self._min_confound_params
-            )
+            confound_match = _detect_configuration_confound(group_obs, self._min_confound_params)
             if confound_match is None:
                 continue
-            params = sorted(
-                {str(o.measurements.get("parameter", "?")) for o in confound_match}
-            )
+            params = sorted({str(o.measurements.get("parameter", "?")) for o in confound_match})
             hypotheses.append(
                 _build_hypothesis(
                     kind=HypothesisKind.POSSIBLE_CONFIGURATION_CONFOUND,
@@ -1098,7 +1086,7 @@ def _detect_plateau(obs: Observation, consumed: set[int]) -> Observation | None:
 
 
 def _detect_reproducibility_gap(
-    kinds_present: dict[ObservationKind, Observation]
+    kinds_present: dict[ObservationKind, Observation],
 ) -> tuple[Observation, ...] | None:
     """Detects any missing provenance field (seed, code version,
     hardware, dataset) recorded for a run.
@@ -1115,7 +1103,7 @@ def _detect_reproducibility_gap(
 
 
 def _detect_incomplete_experiment(
-    kinds_present: dict[ObservationKind, Observation]
+    kinds_present: dict[ObservationKind, Observation],
 ) -> tuple[Observation, Observation] | None:
     """Detects a run with neither metrics nor logs recorded.
 
@@ -1135,7 +1123,7 @@ def _detect_incomplete_experiment(
 
 
 def _detect_metric_logging_issue(
-    kinds_present: dict[ObservationKind, Observation]
+    kinds_present: dict[ObservationKind, Observation],
 ) -> tuple[Observation, ...] | None:
     """Detects missing or summary-only metric data for a run.
 

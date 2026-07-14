@@ -50,10 +50,7 @@ class MetricHistoryNotFoundError(Exception):
     def __init__(self, ref: RunRef, metric: str) -> None:
         self.ref = ref
         self.metric = metric
-        super().__init__(
-            f"No metric history seeded for run_id={ref.run_id!r}, "
-            f"metric={metric!r}."
-        )
+        super().__init__(f"No metric history seeded for run_id={ref.run_id!r}, metric={metric!r}.")
 
 
 class FakeBackend(ExperimentBackend):
@@ -68,9 +65,7 @@ class FakeBackend(ExperimentBackend):
     name = "fake"
 
     def __init__(self, capabilities: set[BackendCapability] | None = None) -> None:
-        self.capabilities = (
-            capabilities if capabilities is not None else {BackendCapability.SWEEPS}
-        )
+        self.capabilities = capabilities if capabilities is not None else {BackendCapability.SWEEPS}
         self._runs: dict[RunRef, Run] = {}
         self._histories: dict[tuple[RunRef, str], MetricHistory] = {}
         self._sweeps: dict[tuple[str, str, str], Sweep] = {}  # (backend, project, sweep_id)
@@ -119,9 +114,7 @@ class FakeBackend(ExperimentBackend):
     async def test_connection(self) -> ConnectionStatus:
         if self._connection_status is not None:
             return self._connection_status
-        return ConnectionStatus(
-            backend=self.name, authenticated=True, scopes_detected=["read"]
-        )
+        return ConnectionStatus(backend=self.name, authenticated=True, scopes_detected=["read"])
 
     async def list_runs(
         self,

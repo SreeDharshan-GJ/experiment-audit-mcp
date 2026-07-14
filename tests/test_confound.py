@@ -162,12 +162,8 @@ def test_single_claimed_variable_only_difference_is_clean_high_confidence():
 
 
 def test_partial_data_on_baseline_downgrades_confidence_to_low():
-    baseline = _make_run(
-        "baseline", config={"learning_rate": 0.001}, data_completeness="partial"
-    )
-    ablation = _make_run(
-        "ablation", config={"learning_rate": 0.01}, data_completeness="complete"
-    )
+    baseline = _make_run("baseline", config={"learning_rate": 0.001}, data_completeness="partial")
+    ablation = _make_run("ablation", config={"learning_rate": 0.01}, data_completeness="complete")
 
     result = audit_ablation(baseline, ablation, claimed_variable="learning_rate")
 
@@ -177,9 +173,7 @@ def test_partial_data_on_baseline_downgrades_confidence_to_low():
 
 
 def test_partial_data_on_ablation_downgrades_confidence_to_low():
-    baseline = _make_run(
-        "baseline", config={"learning_rate": 0.001}, data_completeness="complete"
-    )
+    baseline = _make_run("baseline", config={"learning_rate": 0.001}, data_completeness="complete")
     ablation = _make_run(
         "ablation", config={"learning_rate": 0.01, "batch_size": 64}, data_completeness="partial"
     )
@@ -196,12 +190,8 @@ def test_unknown_data_completeness_does_not_trigger_partial_downgrade():
     # "partial" ingestion - spec §5 flags "partial" specifically, so an
     # unknown-completeness run should not be penalized as if it were
     # known to be partial.
-    baseline = _make_run(
-        "baseline", config={"learning_rate": 0.001}, data_completeness="unknown"
-    )
-    ablation = _make_run(
-        "ablation", config={"learning_rate": 0.01}, data_completeness="unknown"
-    )
+    baseline = _make_run("baseline", config={"learning_rate": 0.001}, data_completeness="unknown")
+    ablation = _make_run("ablation", config={"learning_rate": 0.01}, data_completeness="unknown")
 
     result = audit_ablation(baseline, ablation, claimed_variable="learning_rate")
 
@@ -225,9 +215,7 @@ def test_identical_configs_is_uncertain_not_clean():
 
 
 def test_uncertain_verdict_overridden_by_partial_data_message_but_stays_low_confidence():
-    baseline = _make_run(
-        "baseline", config={"learning_rate": 0.001}, data_completeness="partial"
-    )
+    baseline = _make_run("baseline", config={"learning_rate": 0.001}, data_completeness="partial")
     ablation = _make_run("ablation", config={"learning_rate": 0.001})
 
     result = audit_ablation(baseline, ablation, claimed_variable="learning_rate")

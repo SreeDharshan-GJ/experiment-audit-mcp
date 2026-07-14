@@ -32,7 +32,9 @@ production, per spec §7's own "API-drift regression" testing category.
 from __future__ import annotations
 
 import asyncio
+import math
 import random
+import re
 import time
 from datetime import datetime
 from typing import Any, Protocol
@@ -149,6 +151,20 @@ _BASE_DELAY_SECONDS = 1.0
 _MAX_DELAY_SECONDS = 30.0
 
 
+_RETRY_TOKEN_PATTERNS = [
+    # Numeric HTTP-style status codes and "timeout" are wrapped in \b
+    # (word-boundary) so they only match as standalone tokens — see the
+    # bugfix note below. Phrase tokens ("rate limit"/"rate_limit") are
+    # inherently space/underscore-delimited already, so a plain substring
+    # check for them carries negligible false-positive risk.
+    re.compile(r"\b429\b"),
+    re.compile(r"\b502\b"),
+    re.compile(r"\b503\b"),
+    re.compile(r"\btimeout\b"),
+    re.compile(r"rate[ _]limit"),
+]
+
+
 def _is_retryable(exc: Exception) -> bool:
     """Best-effort classification of a retryable (rate-limited/transient)
     failure vs. a permanent one (auth, not-found).
@@ -160,12 +176,21 @@ def _is_retryable(exc: Exception) -> bool:
     contract — verify it against a real rate-limited response before
     relying on it in production (no live API access was available to
     confirm the exact exception shape W&B raises for a 429 today).
+
+    **Bugfix:** this previously did a bare substring check (`"502" in
+    message`), which misfires whenever an *unrelated* number happens to
+    appear next to other digits/letters in the message — most
+    concretely, `WandbRunNotFoundError`'s message embeds the run/entity/
+    project id verbatim (see its `__init__` below), so a run named e.g.
+    `"run502"` made a permanent, already-classified 404 look like a
+    retryable 502 and caused up to `_MAX_RETRIES` pointless retries
+    (~60s of added latency) before the not-found error was finally
+    surfaced. Word-boundary matching on the numeric/timeout tokens fixes
+    this while keeping the true-positive cases (space- or
+    punctuation-delimited status codes in real transport errors) intact.
     """
     message = str(exc).lower()
-    return any(
-        token in message
-        for token in ("429", "rate limit", "rate_limit", "timeout", "503", "502")
-    )
+    return any(pattern.search(message) for pattern in _RETRY_TOKEN_PATTERNS)
 
 
 def _call_with_backoff(fn: Any, *args: Any, **kwargs: Any) -> Any:
@@ -216,6 +241,26 @@ class WandbBackend(ExperimentBackend):
         self._credentials = credentials or load_wandb_credentials()
         self._page_size = page_size
         self._entity: str | None = self._credentials.entity
+        # `_client_is_injected` distinguishes the test-double path (a
+        # `_WandbApiClient` Protocol implementation passed in by tests,
+        # which must keep being reused as-is) from the real path (no
+        # `client` given, so this backend owns a real `wandb.Api()`).
+        # This matters for `list_runs` below: the real `wandb.Api()`
+        # caches its `Runs` paginator per (path, filters, order) key for
+        # the lifetime of the `Api` instance (confirmed against the real
+        # SDK: `wandb.apis.public.api.Api.runs`'s `self._runs` cache
+        # dict). Since this backend is held for the lifetime of a
+        # long-running MCP server process, reusing one `Api()` instance
+        # for `list_runs` means every call after the first returns a
+        # stale, frozen snapshot of whatever runs existed at the time of
+        # that first call -- confirmed live: a project that grew from 3
+        # to 27 runs kept reporting exactly 3 through `list_runs` no
+        # matter how many times or how long after it was called again,
+        # while a fresh `wandb.Api()` in a new process saw all 27
+        # immediately. `list_runs` below builds a fresh, short-lived
+        # `Api()` per call specifically to sidestep this cache, rather
+        # than relying on the SDK's private `_runs` dict.
+        self._client_is_injected = client is not None
         if client is not None:
             self._client = client
         else:
@@ -269,9 +314,7 @@ class WandbBackend(ExperimentBackend):
         except Exception as exc:  # noqa: BLE001 - classified below
             message = str(exc)
             if "auth" in message.lower() or "api key" in message.lower():
-                return ConnectionStatus(
-                    backend=self.name, authenticated=False, error=message
-                )
+                return ConnectionStatus(backend=self.name, authenticated=False, error=message)
             return ConnectionStatus(
                 backend=self.name,
                 authenticated=False,
@@ -303,10 +346,32 @@ class WandbBackend(ExperimentBackend):
         # honor a per-call page size at all. `None` (the common case) keeps
         # today's behavior unchanged.
         per_page = page_size if page_size is not None else self._page_size
+        # **Bugfix:** page_size was never validated. A caller passing
+        # page_size=0 (or negative) would get a zero-length (or
+        # backwards) slice every call while `has_more` stayed True,
+        # producing a `next_cursor` that never advances — an infinite,
+        # zero-progress pagination loop for any caller that loops on
+        # next_cursor until it's None (which is exactly how cursor-based
+        # pagination is meant to be consumed). Fail fast instead.
+        if per_page <= 0:
+            raise ValueError(f"page_size must be a positive integer, got {per_page!r}")
         wandb_filters = _to_wandb_filters(filters)
 
         def _fetch() -> tuple[list[_WandbRunLike], bool]:
-            paginator = self._client.runs(
+            # See __init__'s comment on `_client_is_injected`: a real,
+            # long-lived `wandb.Api()` caches `.runs()` results per call
+            # signature for its whole lifetime, silently going stale as
+            # new runs appear on the server. Test doubles don't have
+            # this problem (and must keep being reused, since tests may
+            # rely on call-count/identity), so only the real path
+            # constructs a fresh client here.
+            if self._client_is_injected:
+                client = self._client
+            else:
+                import wandb.apis.public as wandb_public
+
+                client = wandb_public.Api(api_key=self._credentials.api_key)
+            paginator = client.runs(
                 path=f"{entity}/{project}",
                 filters=wandb_filters,
                 per_page=per_page,
@@ -321,13 +386,37 @@ class WandbBackend(ExperimentBackend):
 
         page_items, has_more = await asyncio.to_thread(_call_with_backoff, _fetch)
         runs = [_to_run(entity, project, r) for r in page_items]
-        next_cursor = _encode_cursor(offset + per_page) if has_more else None
+        # **Bugfix:** next_cursor used to be computed as `offset + per_page`
+        # unconditionally whenever `has_more` was True, rather than from
+        # the number of items actually returned. Under normal conditions
+        # those are equal, but if the underlying paginator ever returns
+        # fewer than `per_page` items while still reporting more data
+        # available (e.g. rows removed/filtered server-side between the
+        # count check and the fetch — not something this backend can rule
+        # out against a live, mutating W&B project), the old computation
+        # would silently skip the un-returned runs on the next page.
+        # Advancing by `len(page_items)` keeps the cursor correct
+        # regardless of how many items a given fetch actually yielded.
+        next_cursor = _encode_cursor(offset + len(page_items)) if has_more else None
         return Page(items=runs, next_cursor=next_cursor)
 
     async def get_run_summary(self, ref: RunRef) -> Run:
         def _fetch() -> _WandbRunLike:
+            # Same root cause as list_runs above: `wandb.Api.run()`
+            # shares its `self._runs` cache dict with `.runs()`, keyed
+            # by the run's path string, and loads that run's data once
+            # (`lazy=False`) rather than refetching on repeat calls. A
+            # run fetched here while still in progress would otherwise
+            # return that same in-progress snapshot forever, even after
+            # the run finishes -- so this uses a fresh client too.
+            if self._client_is_injected:
+                client = self._client
+            else:
+                import wandb.apis.public as wandb_public
+
+                client = wandb_public.Api(api_key=self._credentials.api_key)
             try:
-                return self._client.run(f"{ref.entity}/{ref.project}/{ref.run_id}")
+                return client.run(f"{ref.entity}/{ref.project}/{ref.run_id}")
             except Exception as exc:  # noqa: BLE001
                 if "not found" in str(exc).lower() or "404" in str(exc):
                     raise WandbRunNotFoundError(ref) from exc
@@ -346,8 +435,28 @@ class WandbBackend(ExperimentBackend):
         max_step = step_range[1] if step_range else None
 
         def _fetch() -> list[dict[str, Any]]:
+            # **Bugfix:** this used to call `self._client.run(...)`
+            # directly, reusing the same long-lived `Api()` instance for
+            # the whole life of the backend. That's exactly the staleness
+            # bug documented in `__init__` and already worked around in
+            # `list_runs` and `get_run_summary` (wandb.Api caches `.run()`
+            # results in `self._runs`, keyed by path, for the instance's
+            # lifetime) — it was just never applied here. In practice this
+            # meant a metric history fetched once for a still-running run
+            # would return that same frozen, in-progress snapshot forever,
+            # even after the run finished and new points were logged —
+            # silently defeating spec §5's data_completeness/partial-data
+            # handling for the one code path (training curves) that most
+            # needs fresh data. Fixed by using the same fresh-client
+            # pattern as the other two methods.
+            if self._client_is_injected:
+                client = self._client
+            else:
+                import wandb.apis.public as wandb_public
+
+                client = wandb_public.Api(api_key=self._credentials.api_key)
             try:
-                run = self._client.run(f"{ref.entity}/{ref.project}/{ref.run_id}")
+                run = client.run(f"{ref.entity}/{ref.project}/{ref.run_id}")
             except Exception as exc:  # noqa: BLE001
                 if "not found" in str(exc).lower() or "404" in str(exc):
                     raise WandbRunNotFoundError(ref) from exc
@@ -357,9 +466,7 @@ class WandbBackend(ExperimentBackend):
             # drop points — unacceptable given spec §2/§7's requirement
             # that logged NaN/null points survive exactly, not be sampled
             # away. scan_history returns the full, unsampled record set.
-            return list(
-                run.scan_history(keys=[metric], min_step=min_step, max_step=max_step)
-            )
+            return list(run.scan_history(keys=[metric], min_step=min_step, max_step=max_step))
 
         records = await asyncio.to_thread(_call_with_backoff, _fetch)
         points = [_to_metric_point(record, metric) for record in records]
@@ -400,7 +507,23 @@ class WandbBackend(ExperimentBackend):
         entity = self._resolve_entity_sync()
 
         def _fetch() -> list[_WandbSweepLike]:
-            project_handle = self._client.project(project, entity)
+            # **Bugfix:** same class of staleness bug as get_metric_history
+            # above — this reused `self._client` (the one long-lived
+            # `Api()` instance held for the server's whole lifetime)
+            # directly, instead of the fresh-client-per-call pattern
+            # `list_runs`/`get_run_summary`/`get_metric_history` all use to
+            # avoid `wandb.Api`'s internal per-instance caching. A sweep
+            # that gains new runs after the first `list_sweeps` call would
+            # otherwise keep reporting the original, stale run set for the
+            # life of the process. Fixed for consistency with the rest of
+            # this backend's established (and load-bearing) discipline.
+            if self._client_is_injected:
+                client = self._client
+            else:
+                import wandb.apis.public as wandb_public
+
+                client = wandb_public.Api(api_key=self._credentials.api_key)
+            project_handle = client.project(project, entity)
             return list(project_handle.sweeps())
 
         wandb_sweeps = _call_with_backoff(_fetch)
@@ -478,7 +601,19 @@ def _to_summary_metrics(summary_metrics: dict[str, Any] | None) -> dict[str, flo
     result: dict[str, float] = {}
     for key, value in (summary_metrics or {}).items():
         if isinstance(value, (int, float)) and not isinstance(value, bool):
-            result[key] = float(value)
+            as_float = float(value)
+            # **Bugfix (Audit #9):** same NaN/Infinity issue as
+            # `_normalize_metric_value` above — a raw numeric NaN/Infinity
+            # in a run's summary previously passed straight through as an
+            # actual non-finite float, which later broke `json.dumps`'s
+            # RFC-8259-invalid `NaN`/`Infinity` output. Dropped (not kept
+            # as a key with a `None` value) to match this function's
+            # existing "non-representable summary value is dropped, not
+            # raised on" contract documented below, rather than silently
+            # changing that contract's shape for this one case.
+            if math.isnan(as_float) or math.isinf(as_float):
+                continue
+            result[key] = as_float
         # Non-numeric summary values (strings, nested dicts/media refs,
         # which W&B summaries can legitimately contain) are dropped here
         # rather than raised on — summary_metrics is typed
@@ -543,7 +678,24 @@ def _normalize_metric_value(raw_value: Any) -> float | None:
     if isinstance(raw_value, bool):
         return None
     if isinstance(raw_value, (int, float)):
-        return float(raw_value)
+        as_float = float(raw_value)
+        # **Bugfix (Audit #9):** the sentinel-string handling above only
+        # catches NaN/Infinity when W&B has already stringified them. If a
+        # raw *numeric* NaN/Infinity ever reaches this layer instead (e.g.
+        # a client library that decodes them as real floats rather than
+        # the documented string sentinels — not something this codebase
+        # can rule out for every W&B API version), `float(raw_value)`
+        # silently produced an actual `nan`/`inf` float that later broke
+        # `json.dumps`'s output (`NaN`/`Infinity` are not valid JSON per
+        # RFC 8259) instead of the `None` spec §2 specifies for exactly
+        # this case. `models.py`'s `_json_safe` now also catches this at
+        # the MCP-boundary serialization choke point regardless, but
+        # normalizing here too keeps this function's own return value
+        # honest about the type it promises (`float | None`, never a
+        # non-finite float).
+        if math.isnan(as_float) or math.isinf(as_float):
+            return None
+        return as_float
     return None
 
 
@@ -555,9 +707,7 @@ def _to_sweep(entity: str, project: str, wandb_sweep: _WandbSweepLike) -> Sweep:
     config = wandb_sweep.config or {}
     method = config.get("method") or "unsupported"
     metric_config = config.get("metric")
-    target_metric = (
-        metric_config.get("name") if isinstance(metric_config, dict) else None
-    )
+    target_metric = metric_config.get("name") if isinstance(metric_config, dict) else None
     run_refs = [
         RunRef(backend="wandb", entity=entity, project=project, run_id=run.id)
         for run in wandb_sweep.runs or []

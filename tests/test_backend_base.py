@@ -86,9 +86,7 @@ def test_run_filter_defaults_apply_no_filtering():
 
 
 def test_connection_status_to_dict_matches_spec_shape():
-    status = ConnectionStatus(
-        backend="wandb", authenticated=True, scopes_detected=["read"]
-    )
+    status = ConnectionStatus(backend="wandb", authenticated=True, scopes_detected=["read"])
     d = status.to_dict()
     assert d == {
         "backend": "wandb",
