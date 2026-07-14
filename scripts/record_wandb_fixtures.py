@@ -31,7 +31,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 try:
-    import wandb
     import wandb.apis.public as wandb_public
 except ImportError:
     print("Install the project first: pip install -e '.[dev]'", file=sys.stderr)
