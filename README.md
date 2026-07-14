@@ -62,9 +62,19 @@ follows.
 
 Requires Python 3.11+.
 
+**Not yet published to PyPI** (see [Known Gaps](#known-gaps-honest-status) —
+the package name is reserved but no release has been pushed there yet), so
+`pip install experiment-audit-mcp` will currently fail with "No matching
+distribution found." Until it's published, install from source instead:
+
 ```bash
-pip install experiment-audit-mcp
+git clone https://github.com/SreeDharshan-GJ/experiment-audit-mcp.git
+cd experiment-audit-mcp
+pip install -e .
 ```
+
+Once a release is published to PyPI, `pip install experiment-audit-mcp` will
+also work.
 
 Set your credentials (a **read-only** W&B API key is recommended — this
 server never writes to your project):
@@ -95,8 +105,12 @@ Add it to your MCP client config. For Claude Desktop
 For Claude Code:
 
 ```bash
-claude mcp add experiment-audit -e WANDB_API_KEY=your-read-only-key -- experiment-audit-mcp
+claude mcp add -e WANDB_API_KEY=your-read-only-key experiment-audit -- experiment-audit-mcp
 ```
+
+(Options like `-e` must come before the server name, not after — putting
+`-e` after the name has been a source of "Invalid environment variable
+format" errors in some Claude Code versions.)
 
 Or run it directly (useful for testing with the
 [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector)):
@@ -141,7 +155,7 @@ buried in the docs — a `get_*`/`list_*` result is a deterministic fact; a
 
 | Tool | Kind | What it does |
 |---|---|---|
-| `test_connection` | retrieval | Validates W&B credentials; runs automatically on server start, also callable mid-session. |
+| `test_connection` | retrieval | Validates W&B credentials against the real API; call it explicitly (e.g. as your first tool call in a session) — it is not invoked automatically on server start. Only presence of `WANDB_API_KEY` is checked automatically at startup (fail-fast if missing), not that the key actually works. |
 | `list_runs` | retrieval | Cheap, paginated run listing (id/name/tags/status only — no config or metrics). |
 | `get_run_summary` | retrieval | Full config + summary metrics + `data_completeness` for one run. |
 | `get_metric_history` | retrieval | Full point-by-point history for one metric on one run. |
@@ -321,10 +335,10 @@ roadmap — see Roadmap below.
 ## Development
 
 ```bash
-git clone https://github.com/<your-username>/experiment-audit-mcp.git
+git clone https://github.com/SreeDharshan-GJ/experiment-audit-mcp.git
 cd experiment-audit-mcp
 pip install -e ".[dev]"
-pytest                # 233 tests
+pytest                # 350 tests
 ruff check .          # lint
 ```
 

@@ -25,11 +25,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-username/experiment-audit-mcp"
-Repository = "https://github.com/your-username/experiment-audit-mcp"
-Documentation = "https://github.com/your-username/experiment-audit-mcp/blob/main/docs/design-spec-v1.md"
-Changelog = "https://github.com/your-username/experiment-audit-mcp/blob/main/CHANGELOG.md"
-Issues = "https://github.com/your-username/experiment-audit-mcp/issues"
+Homepage = "https://github.com/SreeDharshan-GJ/experiment-audit-mcp"
+Repository = "https://github.com/SreeDharshan-GJ/experiment-audit-mcp"
+Documentation = "https://github.com/SreeDharshan-GJ/experiment-audit-mcp/blob/main/docs/design-spec-v1.md"
+Changelog = "https://github.com/SreeDharshan-GJ/experiment-audit-mcp/blob/main/CHANGELOG.md"
+Issues = "https://github.com/SreeDharshan-GJ/experiment-audit-mcp/issues"
 
 [project.scripts]
 experiment-audit-mcp = "experiment_audit_mcp.server:main"
@@ -39,6 +39,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "ruff>=0.4.0",
+    "build>=1.0.0",
 ]
 
 [build-system]
