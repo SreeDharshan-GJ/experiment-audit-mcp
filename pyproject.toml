@@ -32,7 +32,7 @@ Changelog = "https://github.com/SreeDharshan-GJ/experiment-audit-mcp/blob/main/C
 Issues = "https://github.com/SreeDharshan-GJ/experiment-audit-mcp/issues"
 
 [project.scripts]
-experiment-audit-mcp = "experiment_audit.server:main"
+experiment-audit-mcp = "experiment_audit_mcp.server:main"
 
 [project.optional-dependencies]
 dev = [
