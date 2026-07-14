@@ -13,11 +13,11 @@ from datetime import UTC, datetime
 
 import pytest
 
-from experiment_audit_mcp.analysis.comparison import (
+from experiment_audit.analysis.comparison import (
     CompareRunsError,
     compare_runs,
 )
-from experiment_audit_mcp.models import Run, RunRef
+from experiment_audit.models import Run, RunRef
 
 _ENTITY = "test-entity"
 

@@ -48,34 +48,34 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from experiment_audit_mcp.analysis.comparison import CompareRunsError
-from experiment_audit_mcp.analysis.comparison import compare_runs as _compare_runs_pure
-from experiment_audit_mcp.analysis.confound import audit_ablation as _audit_ablation_pure
-from experiment_audit_mcp.analysis.divergence import (
+from experiment_audit.analysis.comparison import CompareRunsError
+from experiment_audit.analysis.comparison import compare_runs as _compare_runs_pure
+from experiment_audit.analysis.confound import audit_ablation as _audit_ablation_pure
+from experiment_audit.analysis.divergence import (
     audit_training_curve as _audit_training_curve_pure,
 )
-from experiment_audit_mcp.analysis.sensitivity import InsufficientSamplesError, SweepAuditError
-from experiment_audit_mcp.analysis.sensitivity import audit_sweep as _audit_sweep_pure
-from experiment_audit_mcp.auth import MissingCredentialsError
-from experiment_audit_mcp.backends.base import (
+from experiment_audit.analysis.sensitivity import InsufficientSamplesError, SweepAuditError
+from experiment_audit.analysis.sensitivity import audit_sweep as _audit_sweep_pure
+from experiment_audit.auth import MissingCredentialsError
+from experiment_audit.backends.base import (
     ExperimentBackend,
     NotSupportedError,
     RunFilter,
 )
-from experiment_audit_mcp.backends.fake_backend import (
+from experiment_audit.backends.fake_backend import (
     MetricHistoryNotFoundError as FakeMetricHistoryNotFoundError,
 )
-from experiment_audit_mcp.backends.fake_backend import (
+from experiment_audit.backends.fake_backend import (
     RunNotFoundError as FakeRunNotFoundError,
 )
-from experiment_audit_mcp.backends.wandb_backend import (
+from experiment_audit.backends.wandb_backend import (
     WandbAuthenticationError,
     WandbBackend,
     WandbRunNotFoundError,
 )
-from experiment_audit_mcp.models import Run, RunRef
+from experiment_audit.models import Run, RunRef
 
-logger = logging.getLogger("experiment_audit_mcp")
+logger = logging.getLogger("experiment_audit")
 
 _DEFAULT_LIST_RUNS_PAGE_SIZE = 25
 
@@ -163,7 +163,7 @@ def _error_dict(
     the Milestone-2-approved `ToolError` dataclass — this keeps that file
     untouched for a Milestone 4 concern.
     """
-    from experiment_audit_mcp.errors import ToolError
+    from experiment_audit.errors import ToolError
 
     error = ToolError(
         error_type=error_type,  # type: ignore[arg-type]

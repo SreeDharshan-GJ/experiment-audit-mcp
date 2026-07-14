@@ -34,13 +34,13 @@ from datetime import UTC, datetime
 
 import pytest
 
-from experiment_audit_mcp.analysis.sensitivity import (
+from experiment_audit.analysis.sensitivity import (
     DEFAULT_MINIMUM_SAMPLES,
     InsufficientSamplesError,
     SweepAuditError,
     audit_sweep,
 )
-from experiment_audit_mcp.models import Run, RunRef, Sweep
+from experiment_audit.models import Run, RunRef, Sweep
 
 _ENTITY = "test-entity"
 _PROJECT = "mamfac"

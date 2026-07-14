@@ -172,7 +172,7 @@ context budget on every conversational turn.
 ## Architecture
 
 ```
-experiment_audit_mcp/
+experiment_audit/
 ├── models.py            # RunRef, Run, MetricPoint, MetricHistory, Sweep, Page[T]
 ├── errors.py             # ToolError + the frozen error_type taxonomy
 ├── auth.py               # env-var credential handling, fail-fast

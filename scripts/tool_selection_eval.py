@@ -59,9 +59,9 @@ from tool_selection_prompts import TOOL_SELECTION_PROMPTS  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from experiment_audit_mcp.backends.fake_backend import FakeBackend  # noqa: E402
-from experiment_audit_mcp.models import MetricHistory, MetricPoint, Run, RunRef, Sweep  # noqa: E402
-from experiment_audit_mcp.server import build_server  # noqa: E402
+from experiment_audit.backends.fake_backend import FakeBackend  # noqa: E402
+from experiment_audit.models import MetricHistory, MetricPoint, Run, RunRef, Sweep  # noqa: E402
+from experiment_audit.server import build_server  # noqa: E402
 
 _ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 _ANTHROPIC_VERSION = "2023-06-01"

@@ -1,5 +1,5 @@
 [project]
-name = "experiment-audit-mcp"
+name = "experiment-audit"
 version = "1.0.0"
 description = "MCP server for auditing ML experiments (W&B): confounded ablations, training-curve pathologies, and misleading sweep conclusions."
 readme = "README.md"
@@ -32,7 +32,7 @@ Changelog = "https://github.com/SreeDharshan-GJ/experiment-audit-mcp/blob/main/C
 Issues = "https://github.com/SreeDharshan-GJ/experiment-audit-mcp/issues"
 
 [project.scripts]
-experiment-audit-mcp = "experiment_audit_mcp.server:main"
+experiment-audit-mcp = "experiment_audit.server:main"
 
 [project.optional-dependencies]
 dev = [

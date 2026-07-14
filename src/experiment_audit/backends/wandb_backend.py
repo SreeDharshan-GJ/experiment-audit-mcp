@@ -37,14 +37,14 @@ import time
 from datetime import datetime
 from typing import Any, Protocol
 
-from experiment_audit_mcp.auth import WandbCredentials, load_wandb_credentials
-from experiment_audit_mcp.backends.base import (
+from experiment_audit.auth import WandbCredentials, load_wandb_credentials
+from experiment_audit.backends.base import (
     BackendCapability,
     ConnectionStatus,
     ExperimentBackend,
     RunFilter,
 )
-from experiment_audit_mcp.models import MetricHistory, MetricPoint, Page, Run, RunRef, Sweep
+from experiment_audit.models import MetricHistory, MetricPoint, Page, Run, RunRef, Sweep
 
 # -- Structural interfaces for the wandb SDK surface this backend uses ------
 #
@@ -139,6 +139,29 @@ class WandbRunNotFoundError(Exception):
 
 class WandbAuthenticationError(Exception):
     """Raised when the configured WANDB_API_KEY is rejected by the API."""
+
+
+def _is_run_not_found(exc: Exception) -> bool:
+    """Classifies a real `Api.run()` failure as "run doesn't exist / key
+    lacks read access" vs. some other failure.
+
+    **Verified against a live fixture (tests/fixtures/wandb/run_not_found/,
+    recorded via scripts/record_wandb_fixtures.py):** the real exception
+    text for a missing run is `"Could not find run <Run entity/project/
+    run_id (None)>"` — *not* the two-word phrase `"not found"` this
+    classifier originally checked for. The original check
+    (`"not found" in str(exc).lower()`) never matched a real 404 and would
+    have silently let every not-found case fall through to an untyped
+    exception instead of `WandbRunNotFoundError`. `"could not find"` is
+    the actual live-verified phrase; `"not found"` and `"404"` are kept as
+    additional matches in case a different W&B API surface or SDK version
+    phrases it differently — see tests/test_wandb_backend_fixtures.py's
+    `test_run_not_found_fixture_maps_to_typed_error`, which fails loudly
+    (with the real message) if this classifier ever drifts from live
+    behavior again.
+    """
+    message = str(exc).lower()
+    return "could not find" in message or "not found" in message or "404" in message
 
 
 # -- Rate-limit backoff (spec §5: "backoff handled once in the backend
@@ -329,7 +352,7 @@ class WandbBackend(ExperimentBackend):
             try:
                 return self._client.run(f"{ref.entity}/{ref.project}/{ref.run_id}")
             except Exception as exc:  # noqa: BLE001
-                if "not found" in str(exc).lower() or "404" in str(exc):
+                if _is_run_not_found(exc):
                     raise WandbRunNotFoundError(ref) from exc
                 raise
 
@@ -349,7 +372,7 @@ class WandbBackend(ExperimentBackend):
             try:
                 run = self._client.run(f"{ref.entity}/{ref.project}/{ref.run_id}")
             except Exception as exc:  # noqa: BLE001
-                if "not found" in str(exc).lower() or "404" in str(exc):
+                if _is_run_not_found(exc):
                     raise WandbRunNotFoundError(ref) from exc
                 raise
             # scan_history (not history()) is used deliberately: history()

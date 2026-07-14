@@ -16,12 +16,12 @@ from __future__ import annotations
 
 import pytest
 
-from experiment_audit_mcp.analysis.divergence import (
+from experiment_audit.analysis.divergence import (
     SCHEMA_VERSION,
     audit_training_curve,
     infer_metric_type,
 )
-from experiment_audit_mcp.models import MetricHistory, MetricPoint, RunRef
+from experiment_audit.models import MetricHistory, MetricPoint, RunRef
 
 _REF = RunRef(backend="fake", entity="test-entity", project="mamfac", run_id="run1")
 

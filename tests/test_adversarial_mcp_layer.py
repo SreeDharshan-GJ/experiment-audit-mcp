@@ -24,7 +24,7 @@ from __future__ import annotations
 import pytest
 from fastmcp import Client
 
-from experiment_audit_mcp.server import build_server
+from experiment_audit.server import build_server
 from tests.fixtures.adversarial_cases import ADVERSARIAL_CASES
 
 

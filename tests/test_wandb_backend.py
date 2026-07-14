@@ -18,18 +18,18 @@ from datetime import UTC, datetime
 
 import pytest
 
-from experiment_audit_mcp.auth import (
+from experiment_audit.auth import (
     MissingCredentialsError,
     WandbCredentials,
     load_wandb_credentials,
 )
-from experiment_audit_mcp.backends.base import BackendCapability, RunFilter
-from experiment_audit_mcp.backends.wandb_backend import (
+from experiment_audit.backends.base import BackendCapability, RunFilter
+from experiment_audit.backends.wandb_backend import (
     WandbBackend,
     WandbRunNotFoundError,
     _to_wandb_filters,
 )
-from experiment_audit_mcp.models import RunRef
+from experiment_audit.models import RunRef
 
 # ---------------------------------------------------------------------------
 # Fake W&B API client — satisfies the structural Protocols in
@@ -352,6 +352,30 @@ async def test_get_run_summary_found():
 
 
 @pytest.mark.asyncio
+async def test_get_run_summary_not_found_raises_typed_error_for_real_api_message():
+    """Regression test: the real W&B API's not-found message is
+    'Could not find run <Run entity/project/run_id (None)>' (verified via
+    tests/fixtures/wandb/run_not_found/, recorded against a live account),
+    not the substring 'not found' the classifier originally checked for.
+    A previous version of this classifier missed this real shape entirely
+    and let the exception fall through untyped — see _is_run_not_found's
+    docstring in wandb_backend.py."""
+
+    class RealShapeErrorClient(_FakeWandbApiClient):
+        def run(self, path):
+            raise Exception(f"Could not find run <Run {path} (None)>")
+
+    client = RealShapeErrorClient()
+    backend = WandbBackend(
+        credentials=WandbCredentials(api_key="fake-key", entity="dash-research"), client=client
+    )
+    ref = RunRef(backend="wandb", entity="dash-research", project="mamfac", run_id="missing")
+
+    with pytest.raises(WandbRunNotFoundError):
+        await backend.get_run_summary(ref)
+
+
+@pytest.mark.asyncio
 async def test_get_run_summary_not_found_raises_typed_error():
     client = _FakeWandbApiClient(runs_by_path={})
     backend = WandbBackend(
@@ -457,7 +481,7 @@ async def test_summary_metrics_drops_non_numeric_values():
 
 @pytest.mark.asyncio
 async def test_get_run_summary_retries_on_rate_limit_then_succeeds(monkeypatch):
-    from experiment_audit_mcp.backends import wandb_backend as wb_module
+    from experiment_audit.backends import wandb_backend as wb_module
 
     monkeypatch.setattr(wb_module.time, "sleep", lambda _seconds: None)
 
@@ -485,7 +509,7 @@ async def test_get_run_summary_retries_on_rate_limit_then_succeeds(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_run_summary_does_not_retry_non_retryable_errors(monkeypatch):
-    from experiment_audit_mcp.backends import wandb_backend as wb_module
+    from experiment_audit.backends import wandb_backend as wb_module
 
     monkeypatch.setattr(wb_module.time, "sleep", lambda _seconds: None)
 
@@ -509,7 +533,7 @@ async def test_get_run_summary_does_not_retry_non_retryable_errors(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_run_summary_gives_up_after_max_retries(monkeypatch):
-    from experiment_audit_mcp.backends import wandb_backend as wb_module
+    from experiment_audit.backends import wandb_backend as wb_module
 
     monkeypatch.setattr(wb_module.time, "sleep", lambda _seconds: None)
 

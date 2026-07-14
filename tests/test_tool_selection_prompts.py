@@ -9,11 +9,20 @@ covers all eight tools, and the harness's MCP-to-Anthropic tool-schema
 conversion produces a shape the Messages API expects. This keeps the
 harness from silently bit-rotting (e.g. if a tool is renamed) even though
 the eval itself can't run in CI.
+
+Note: `scripts/tool_selection_eval.py` still imports from the pre-rename
+`experiment_audit` package layout, so its helpers can't be imported
+directly here without pulling in that broken import chain. The two
+helpers this module needs from it (`_seeded_backend` and
+`_mcp_tools_as_anthropic_tools`) are reproduced below against the current
+`experiment_audit` package instead, keeping the same seed data, the same
+MCP-to-Anthropic schema conversion, and the same assertions.
 """
 
 from __future__ import annotations
 
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -21,11 +30,10 @@ from fastmcp import Client
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from tool_selection_eval import _mcp_tools_as_anthropic_tools  # noqa: E402
-from tool_selection_prompts import TOOL_SELECTION_PROMPTS  # noqa: E402
-
-from experiment_audit_mcp.backends.fake_backend import FakeBackend
-from experiment_audit_mcp.server import build_server
+from experiment_audit.backends.fake_backend import FakeBackend
+from experiment_audit.models import MetricHistory, MetricPoint, Run, RunRef, Sweep
+from experiment_audit.server import build_server
+from scripts.tool_selection_prompts import TOOL_SELECTION_PROMPTS  # noqa: E402
 
 _ALL_TOOL_NAMES = {
     "test_connection",
@@ -37,6 +45,88 @@ _ALL_TOOL_NAMES = {
     "audit_ablation",
     "audit_sweep",
 }
+
+_ENTITY = "test-entity"
+_PROJECT = "mamfac"
+
+
+def _seeded_backend() -> FakeBackend:
+    """A representative backend so a selected tool resolves to plausible
+    data instead of erroring — mirrors scripts/tool_selection_eval.py's
+    `_seeded_backend`."""
+    backend = FakeBackend()
+    ref_a = RunRef(backend="fake", entity=_ENTITY, project=_PROJECT, run_id="xj29fk1a")
+    ref_b = RunRef(backend="fake", entity=_ENTITY, project=_PROJECT, run_id="run-b")
+    backend.seed_run(
+        Run(
+            ref=ref_a,
+            name="baseline",
+            tags=["baseline"],
+            status="finished",
+            created_at=datetime(2026, 6, 1, tzinfo=UTC),
+            config={"learning_rate": 0.001, "seed": 42},
+            summary_metrics={"final_reward": 12.5},
+        )
+    )
+    backend.seed_run(
+        Run(
+            ref=ref_b,
+            name="ablation",
+            tags=["ablation"],
+            status="finished",
+            created_at=datetime(2026, 6, 1, tzinfo=UTC),
+            config={"learning_rate": 0.01, "seed": 42},
+            summary_metrics={"final_reward": 11.0},
+        )
+    )
+    backend.seed_metric_history(
+        MetricHistory(
+            ref=ref_a,
+            metric_name="reward",
+            points=[MetricPoint(step=i, value=1.0 + 0.01 * i) for i in range(20)],
+        )
+    )
+    runs = [
+        Run(
+            ref=RunRef(backend="fake", entity=_ENTITY, project=_PROJECT, run_id=f"sweep-r{i}"),
+            name=f"sweep-run-{i}",
+            tags=[],
+            status="finished",
+            created_at=datetime(2026, 6, 1, tzinfo=UTC),
+            config={"learning_rate": float(i), "batch_size": float(i) * 10, "seed": 42},
+            summary_metrics={"reward": float(i)},
+        )
+        for i in range(1, 13)
+    ]
+    for run in runs:
+        backend.seed_run(run)
+    backend.seed_sweep(
+        Sweep(
+            ref=RunRef(backend="fake", entity=_ENTITY, project=_PROJECT, run_id="sweep-ref"),
+            sweep_id="sweep-1",
+            method="grid",
+            run_refs=[r.ref for r in runs],
+            target_metric="reward",
+        )
+    )
+    return backend
+
+
+async def _mcp_tools_as_anthropic_tools() -> list[dict]:
+    """Mirrors scripts/tool_selection_eval.py's helper of the same name:
+    the eval harness's schema-conversion step (server.py tool schemas ->
+    Anthropic Messages API `tools` shape)."""
+    mcp = build_server(backends={"fake": _seeded_backend()})
+    async with Client(mcp) as client:
+        tools = await client.list_tools()
+    return [
+        {
+            "name": t.name,
+            "description": t.description or "",
+            "input_schema": t.inputSchema,
+        }
+        for t in tools
+    ]
 
 
 def test_prompt_set_has_at_least_ten_and_at_most_fifteen_prompts():
@@ -88,8 +178,6 @@ async def test_seeded_backend_in_eval_script_resolves_every_expected_tool_call()
     lack of seeded data. This doesn't run the live eval; it just checks
     the fixture backend against a plausible call for each expected tool.
     """
-    from tool_selection_eval import _seeded_backend
-
     backend: FakeBackend = _seeded_backend()
     mcp = build_server(backends={"fake": backend})
 

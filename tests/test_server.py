@@ -21,10 +21,10 @@ from datetime import UTC, datetime
 import pytest
 from fastmcp import Client
 
-from experiment_audit_mcp.backends.base import ConnectionStatus
-from experiment_audit_mcp.backends.fake_backend import FakeBackend
-from experiment_audit_mcp.models import MetricHistory, MetricPoint, Run, RunRef
-from experiment_audit_mcp.server import build_server
+from experiment_audit.backends.base import ConnectionStatus
+from experiment_audit.backends.fake_backend import FakeBackend
+from experiment_audit.models import MetricHistory, MetricPoint, Run, RunRef
+from experiment_audit.server import build_server
 
 _ENTITY = "test-entity"
 _PROJECT = "mamfac"
@@ -683,7 +683,7 @@ def _sweep_ref_input(sweep_id: str = "sweep-1") -> dict:
 
 
 def _seed_linear_sweep(fake_backend: FakeBackend, n: int = 12, sweep_id: str = "sweep-1"):
-    from experiment_audit_mcp.models import Sweep
+    from experiment_audit.models import Sweep
 
     runs = []
     for i in range(1, n + 1):
@@ -721,7 +721,7 @@ async def test_audit_sweep_returns_ranking_through_mcp_layer(mcp, fake_backend):
 
 @pytest.mark.asyncio
 async def test_audit_sweep_explicit_target_metric_overrides_sweep_default(mcp, fake_backend):
-    from experiment_audit_mcp.models import Sweep
+    from experiment_audit.models import Sweep
 
     runs = []
     for i in range(1, 13):
@@ -805,7 +805,7 @@ async def test_audit_sweep_unsupported_capability_returns_structured_error(mcp):
 
 @pytest.mark.asyncio
 async def test_audit_sweep_covarying_params_surfaces_warning_through_mcp_layer(mcp, fake_backend):
-    from experiment_audit_mcp.models import Sweep
+    from experiment_audit.models import Sweep
 
     runs = []
     for i in range(1, 13):

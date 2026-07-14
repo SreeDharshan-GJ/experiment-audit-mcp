@@ -1,4 +1,4 @@
-"""experiment_audit_mcp: an MCP server for auditing ML experiments.
+"""experiment_audit: an MCP server for auditing ML experiments.
 
 See docs/design-spec-v1.md for the frozen v1 design specification and
 docs/implementation-roadmap-v1.md for the milestone plan this package is

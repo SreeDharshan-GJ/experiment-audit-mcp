@@ -24,7 +24,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from experiment_audit_mcp.models import MetricHistory, Page, Run, RunRef, Sweep
+from experiment_audit.models import MetricHistory, Page, Run, RunRef, Sweep
 
 
 class BackendCapability(Enum):

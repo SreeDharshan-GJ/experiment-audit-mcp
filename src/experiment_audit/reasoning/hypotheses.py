@@ -101,8 +101,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
-from experiment_audit_mcp.models import RunRef
-from experiment_audit_mcp.reasoning.observations import Observation, ObservationKind, ObservationSet
+from experiment_audit.models import RunRef
+from experiment_audit.reasoning.observations import Observation, ObservationKind, ObservationSet
 
 # -- Thresholds -- pure constants, kept in sync by hand (the same caveat
 # observations.py flags for its own thresholds). Each is referenced by

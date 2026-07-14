@@ -315,7 +315,7 @@ requested explicitly for this milestone's release-quality bar). A
 Show-HN-style launch write-up was drafted at `docs/launch-post.md`,
 framed around the confounded-ablation problem specifically, per spec
 §10. Package version was bumped from the placeholder `0.0.0` to `1.0.0`
-in both `pyproject.toml` and `experiment_audit_mcp/__init__.py`;
+in both `pyproject.toml` and `experiment_auditnit__.py`;
 `pyproject.toml` gained classifiers, keywords, and `[project.urls]` for
 release polish.
 
@@ -340,7 +340,7 @@ available, and no fallback name is needed.
 - Lint (`ruff check .`): clean.
 - Packaging: built both sdist and wheel via `python -m build` from a
   clean `dist/`, installed the wheel into a fresh virtual environment
-  with no dev dependencies, confirmed `import experiment_audit_mcp` and
+  with no dev dependencies, confirmed `import experiment_auditd
   `__version__ == "1.0.0"`, confirmed the `experiment-audit-mcp` console
   script is on `PATH` and fails fast with a clear `MissingCredentialsError`
   when `WANDB_API_KEY` is unset (correct behavior per spec §6, not a

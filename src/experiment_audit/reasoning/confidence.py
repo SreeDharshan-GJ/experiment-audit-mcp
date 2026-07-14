@@ -77,8 +77,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
-from experiment_audit_mcp.models import RunRef
-from experiment_audit_mcp.reasoning.observations import Observation, ObservationKind
+from experiment_audit.models import RunRef
+from experiment_audit.reasoning.observations import Observation, ObservationKind
 
 # -- Thresholds and weights -- pure constants, kept in sync by hand if
 # ever documented elsewhere (the same caveat observations.py flags for

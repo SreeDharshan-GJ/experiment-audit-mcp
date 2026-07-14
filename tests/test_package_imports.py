@@ -5,8 +5,8 @@ CI has a non-empty, passing suite during scaffolding, and is deleted
 once Milestone 1's real tests make it redundant.
 """
 
-import experiment_audit_mcp
+import experiment_audit
 
 
 def test_package_has_version():
-    assert hasattr(experiment_audit_mcp, "__version__")
+    assert hasattr(experiment_audit, "__version__")

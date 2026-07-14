@@ -126,11 +126,11 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
-from experiment_audit_mcp.models import RunRef
+from experiment_audit.models import RunRef
 
 if TYPE_CHECKING:
-    from experiment_audit_mcp.reasoning.confidence import ConfidenceAssessment, ConfidenceSet
-    from experiment_audit_mcp.reasoning.hypotheses import Hypothesis
+    from experiment_audit.reasoning.confidence import ConfidenceAssessment, ConfidenceSet
+    from experiment_audit.reasoning.hypotheses import Hypothesis
 
 
 class JudgmentKind(StrEnum):

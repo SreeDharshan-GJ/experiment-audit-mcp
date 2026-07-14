@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from experiment_audit_mcp.models import Run, RunRef
+from experiment_audit.models import Run, RunRef
 
 
 def _runref_key(ref: RunRef) -> str:

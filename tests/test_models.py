@@ -1,4 +1,4 @@
-"""Tests for experiment_audit_mcp.models — Milestone 1.
+"""Tests for experiment_audit.models — Milestone 1.
 
 Written before the implementation (TDD), per the roadmap's note that the
 serialization round-trip tests, including None-preservation for logged
@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from experiment_audit_mcp.models import (
+from experiment_audit.models import (
     MetricHistory,
     MetricPoint,
     Page,

@@ -75,8 +75,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 
-from experiment_audit_mcp.reasoning.evidence import Evidence
-from experiment_audit_mcp.reasoning.observations import ObservationExtractor, ObservationSet
+from experiment_audit.reasoning.evidence import Evidence
+from experiment_audit.reasoning.observations import ObservationExtractor, ObservationSet
 
 # ----------------------------------------------------------------------
 # Stage output type parameters.

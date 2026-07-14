@@ -34,8 +34,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from experiment_audit_mcp.backends.fake_backend import FakeBackend
-from experiment_audit_mcp.models import MetricHistory, MetricPoint, Run, RunRef, Sweep
+from experiment_audit.backends.fake_backend import FakeBackend
+from experiment_audit.models import MetricHistory, MetricPoint, Run, RunRef, Sweep
 
 _ENTITY = "test-entity"
 _PROJECT = "mamfac"

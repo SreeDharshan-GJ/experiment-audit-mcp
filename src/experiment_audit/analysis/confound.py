@@ -35,8 +35,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from experiment_audit_mcp.analysis.comparison import compare_runs
-from experiment_audit_mcp.models import Run
+from experiment_audit.analysis.comparison import compare_runs
+from experiment_audit.models import Run
 
 Verdict = Literal["clean", "confounded", "uncertain"]
 Confidence = Literal["high", "medium", "low"]

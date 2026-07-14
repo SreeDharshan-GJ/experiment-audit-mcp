@@ -61,7 +61,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
-from experiment_audit_mcp.models import RunRef
+from experiment_audit.models import RunRef
 
 # ---------------------------------------------------------------------------
 # Placeholder upstream contract (see module docstring's note on Judgment /

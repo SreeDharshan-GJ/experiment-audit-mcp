@@ -19,13 +19,13 @@ adversarial cases in later milestones don't require touching this file.
 
 from __future__ import annotations
 
-from experiment_audit_mcp.backends.base import (
+from experiment_audit.backends.base import (
     BackendCapability,
     ConnectionStatus,
     ExperimentBackend,
     RunFilter,
 )
-from experiment_audit_mcp.models import MetricHistory, Page, Run, RunRef, Sweep
+from experiment_audit.models import MetricHistory, Page, Run, RunRef, Sweep
 
 
 class RunNotFoundError(Exception):

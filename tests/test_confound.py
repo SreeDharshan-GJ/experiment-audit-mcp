@@ -23,13 +23,13 @@ from datetime import UTC, datetime
 
 import pytest
 
-from experiment_audit_mcp.analysis.comparison import CompareRunsError
-from experiment_audit_mcp.analysis.confound import (
+from experiment_audit.analysis.comparison import CompareRunsError
+from experiment_audit.analysis.confound import (
     ALLOWLIST_PARAMS,
     SCHEMA_VERSION,
     audit_ablation,
 )
-from experiment_audit_mcp.models import Run, RunRef
+from experiment_audit.models import Run, RunRef
 
 _ENTITY = "test-entity"
 _PROJECT = "mamfac"

@@ -56,7 +56,7 @@ from dataclasses import dataclass
 from statistics import mean, median, pstdev
 from typing import Any, Literal
 
-from experiment_audit_mcp.models import MetricHistory, MetricPoint
+from experiment_audit.models import MetricHistory, MetricPoint
 
 SignalName = Literal[
     "null_values", "sudden_jump", "low_variance_plateau", "high_frequency_oscillation"

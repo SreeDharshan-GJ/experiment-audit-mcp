@@ -1,4 +1,4 @@
-"""Tests for experiment_audit_mcp.backends.fake_backend — Milestone 2.
+"""Tests for experiment_audit.backends.fake_backend — Milestone 2.
 
 Covers the roadmap's Milestone 2 completion criteria directly: FakeBackend
 satisfies the ExperimentBackend ABC contract, a capability-less fake's
@@ -11,19 +11,19 @@ from datetime import UTC, datetime
 
 import pytest
 
-from experiment_audit_mcp.backends.base import (
+from experiment_audit.backends.base import (
     BackendCapability,
     ConnectionStatus,
     ExperimentBackend,
     NotSupportedError,
     RunFilter,
 )
-from experiment_audit_mcp.backends.fake_backend import (
+from experiment_audit.backends.fake_backend import (
     FakeBackend,
     MetricHistoryNotFoundError,
     RunNotFoundError,
 )
-from experiment_audit_mcp.models import MetricHistory, MetricPoint, Run, RunRef, Sweep
+from experiment_audit.models import MetricHistory, MetricPoint, Run, RunRef, Sweep
 
 
 def _make_run(run_id="run1", **overrides) -> Run:

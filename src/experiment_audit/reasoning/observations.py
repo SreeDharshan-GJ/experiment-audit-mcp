@@ -69,9 +69,9 @@ from enum import StrEnum
 from statistics import fmean, pstdev
 from typing import Any
 
-from experiment_audit_mcp.analysis.comparison import CompareRunsError, compare_runs
-from experiment_audit_mcp.models import MetricPoint, RunRef
-from experiment_audit_mcp.reasoning.evidence import Evidence
+from experiment_audit.analysis.comparison import CompareRunsError, compare_runs
+from experiment_audit.models import MetricPoint, RunRef
+from experiment_audit.reasoning.evidence import Evidence
 
 # -- Thresholds -- pure constants, kept in sync by hand if ever documented
 # elsewhere (the same caveat analysis/divergence.py flags for its own

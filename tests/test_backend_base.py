@@ -1,4 +1,4 @@
-"""Tests for experiment_audit_mcp.backends.base and .errors — Milestone 2.
+"""Tests for experiment_audit.backends.base and .errors — Milestone 2.
 
 Covers, per design-spec-v1.md §3, §5 and the roadmap's Milestone 2
 deliverables:
@@ -11,14 +11,14 @@ deliverables:
 
 import pytest
 
-from experiment_audit_mcp.backends.base import (
+from experiment_audit.backends.base import (
     BackendCapability,
     ConnectionStatus,
     ExperimentBackend,
     NotSupportedError,
     RunFilter,
 )
-from experiment_audit_mcp.errors import ToolError
+from experiment_audit.errors import ToolError
 
 
 def test_backend_capability_values():

@@ -46,7 +46,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from experiment_audit_mcp.models import MetricHistory, MetricPoint, Run, RunRef, Sweep
+from experiment_audit.models import MetricHistory, MetricPoint, Run, RunRef, Sweep
 
 
 class EvidenceKind(StrEnum):

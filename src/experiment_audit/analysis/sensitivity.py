@@ -122,7 +122,7 @@ from dataclasses import dataclass
 from statistics import correlation
 from typing import Any, Literal
 
-from experiment_audit_mcp.models import Run, RunRef, Sweep
+from experiment_audit.models import Run, RunRef, Sweep
 
 Confidence = Literal["high", "medium", "low"]
 ExclusionReason = Literal[
