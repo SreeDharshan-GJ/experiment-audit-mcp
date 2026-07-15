@@ -7,6 +7,7 @@ Feed it claims and evidence — it checks for missing support, scopes evidence t
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![PyPI](https://img.shields.io/pypi/v/experiment-audit)](https://pypi.org/project/experiment-audit/)
 [![Status](https://img.shields.io/badge/status-v1.1.0-brightgreen.svg)](CHANGELOG.md)
 [![Built with FastMCP](https://img.shields.io/badge/MCP-FastMCP-purple.svg)](https://github.com/jlowin/fastmcp)
 
