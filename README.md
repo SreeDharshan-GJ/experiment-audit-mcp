@@ -9,6 +9,7 @@ Feed it claims and evidence — it checks for missing support, scopes evidence t
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![PyPI](https://img.shields.io/pypi/v/experiment-audit)](https://pypi.org/project/experiment-audit/)
 [![Status](https://img.shields.io/badge/status-v1.1.0-brightgreen.svg)](CHANGELOG.md)
+[![CI](https://github.com/SreeDharshan-GJ/experiment-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/SreeDharshan-GJ/experiment-audit/actions)
 [![Built with FastMCP](https://img.shields.io/badge/MCP-FastMCP-purple.svg)](https://github.com/jlowin/fastmcp)
 
 Created and maintained by **[Sree Dharshan G J](https://github.com/SreeDharshan-GJ)**
