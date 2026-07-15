@@ -3,117 +3,47 @@
 # experiment-audit
 
 **A scientific reasoning engine for ML experiments.**
-Feed it claims and evidence — it checks for missing support, scopes evidence to claims, catches contradictions, scores confidence, and renders a structured scientific report. The kind of review a careful advisor would give your results before you write them up.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+Feed it claims and evidence — it checks for missing support, scopes evidence to claims,
+catches contradictions, scores confidence, and renders a structured scientific report.
+The kind of review a careful advisor would give your results before you write them up.
+
 [![PyPI](https://img.shields.io/pypi/v/experiment-audit)](https://pypi.org/project/experiment-audit/)
-[![Status](https://img.shields.io/badge/status-v1.1.0-brightgreen.svg)](CHANGELOG.md)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/SreeDharshan-GJ/experiment-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/SreeDharshan-GJ/experiment-audit/actions)
 [![Built with FastMCP](https://img.shields.io/badge/MCP-FastMCP-purple.svg)](https://github.com/jlowin/fastmcp)
+[![Status](https://img.shields.io/badge/status-v1.1.0-brightgreen.svg)](CHANGELOG.md)
 
 Created and maintained by **[Sree Dharshan G J](https://github.com/SreeDharshan-GJ)**
 
 </div>
 
----
+<br>
 
-## Why this exists
+> Most experiment-tracking tools show you numbers. `experiment-audit` checks whether your
+> *claim* about those numbers actually holds up — missing evidence, out-of-scope
+> comparisons, contradictions with earlier results, and confidence that isn't just assumed.
 
-Most experiment-tracking tools show you numbers. None of them tell you
-whether your *claim* about those numbers is actually supported — whether
-your ablation is confounded, your comparison is in scope, your evidence
-contradicts something you said three runs ago, or your confidence is
-justified rather than assumed. `experiment-audit` is the reviewer that
-checks that, before a reader has to.
-
-The reasoning engine is the core of this project. Everything else — the
-MCP server, the W&B backend, the CLI, the Python package — is an
-interface built around it.
-
-## Contents
-
-- [What the reasoning engine does](#what-the-reasoning-engine-does)
-- [Install](#install)
-- [Quick start: the reasoning engine](#quick-start-the-reasoning-engine)
-- [Quick start: the MCP server (W&B audit tools)](#quick-start-the-mcp-server-wb-audit-tools)
-- [Quick start: as a Claude Code plugin](#quick-start-as-a-claude-code-plugin)
-- [Architecture](#architecture)
-- [Data handling](#data-handling)
-- [Known gaps (honest status)](#known-gaps-honest-status)
-- [Development](#development)
-- [Contributing](#contributing)
-- [Roadmap](#roadmap)
-- [Citing this project](#citing-this-project)
-- [Author](#author)
-- [License](#license)
-
-## What the reasoning engine does
-
-Given a set of **claims** (*"model-x achieves 95% accuracy on
-CIFAR-10"*) and the **evidence** backing them (metrics, configs, logs,
-prior runs), the engine runs six rules in sequence and produces a
-`ScientificReport`:
-
-| # | Rule | What it checks |
-|---|------|-----------------|
-| 1 | **Missing evidence** | Does this claim have any supporting evidence trace at all? |
-| 2 | **Scope** | Does the evidence actually match the claim's stated scope (same dataset, same hardware, same evaluation protocol)? |
-| 3 | **Contradiction** | Does any other claim or evidence item conflict with this one? |
-| 4 | **Confidence** | A computed score, not a guess — based on evidence quality, quantity, contradictions found, and what's missing. |
-| 5 | **Judgment** | A verdict (supported / partially supported / unsupported) with the reasoning behind it. |
-| 6 | **Recommendation** | What to do about it — gather more evidence, narrow the claim's scope, retract it. |
-
-Every finding traces back to specific evidence. Nothing in the report is
-an unsupported assertion — that would rather defeat the point.
-
-> This is one of two reasoning pipelines in the package. The second,
-> lower-level pipeline (`ScientificReasoningEngine` — Evidence →
-> Observations → Hypotheses → Confidence → Judgment → Recommendation) is
-> a more generic, extensible framework for injecting custom hypothesis
-> and confidence logic. Most people should start with the six-rule
-> pipeline above. See `src/experiment_audit/reasoning/__init__.py` for
-> both.
+<br>
 
 ## Install
-
-Requires Python 3.11+.
 
 ```bash
 pip install experiment-audit
 ```
 
-Or from source:
+Requires Python 3.11+. See [Quick start](#quick-start-30-seconds) below, or jump straight
+to [Claude Code integration](#claude-code-compatible).
 
-```bash
-git clone https://github.com/SreeDharshan-GJ/experiment-audit-mcp.git
-cd experiment-audit-mcp
-pip install -e .
-```
+<br>
 
-## Quick start: the reasoning engine
-
-**As a CLI:**
-
-```bash
-# See the expected input shape
-experiment-audit reasoning schema > claims.json
-
-# Edit claims.json with your own claims/evidence, then:
-experiment-audit reasoning run --input claims.json --format markdown
-```
-
-Also supports `--format json` and `--format text`, and `--output <path>`
-to write the report to a file instead of stdout.
-
-**As a Python library:**
+## Quick start (30 seconds)
 
 ```python
 from experiment_audit.reasoning import (
-    ScientificReasoningPipeline,
-    ScientificReport,
+    ScientificReasoningPipeline, ScientificReport,
     Claim, ClaimCategory, Scope,
-    EvidenceItem, EvidenceKind,
 )
 
 claim = Claim(
@@ -126,16 +56,143 @@ claim = Claim(
 
 pipeline = ScientificReasoningPipeline()
 context = pipeline.build_initial_context(claims=[claim], evidence=[])
-pipeline_report = pipeline.execute(context)
-report = ScientificReport.from_pipeline_report(pipeline_report)
+report = ScientificReport.from_pipeline_report(pipeline.execute(context))
 
 print(report.to_markdown())
 ```
 
+**Claim → Evidence → Reasoning → Scientific Report.** Every finding in the output traces
+back to specific evidence — the engine doesn't assert anything it can't point to.
+
+Prefer the command line?
+
+```bash
+experiment-audit reasoning schema > claims.json   # see the expected input shape
+experiment-audit reasoning run --input claims.json --format markdown
+```
+
+<br>
+
+## Claude Code Compatible
+
+<table>
+<tr><td>
+
+✓ Native MCP server &nbsp;·&nbsp; ✓ Claude Code skill included &nbsp;·&nbsp;
+✓ Scientific research workflows &nbsp;·&nbsp; ✓ Local-first &nbsp;·&nbsp; ✓ Pure Python package
+
+</td></tr>
+</table>
+
+The reasoning discipline behind this project — how to phrase findings, weigh
+contradictory evidence, and write structured reviewer-style feedback — ships as a
+[Claude Code](https://docs.claude.com/claude-code) skill, with the eight MCP audit tools
+available automatically wherever `WANDB_API_KEY` is set.
+
+```
+/plugin marketplace add ./dev/experiment-audit-plugin
+/plugin install experiment-audit@experiment-audit
+```
+
+It triggers automatically on prompts like:
+
+- *"Is this ablation confounded?"*
+- *"Why did my loss crash?"*
+- *"Review this paper's results claim."*
+- *"Compare these ablation studies."*
+- *"Write reviewer feedback on this."*
+
+See [Quick start: the MCP server](#quick-start-the-mcp-server-wb-audit-tools) below for
+manual MCP setup, or the
+[plugin's own README](dev/experiment-audit-plugin/README.md) for full details.
+
+<br>
+
+## Why experiment-audit?
+
+Traditional experiment trackers are good at one thing: displaying metrics. They will
+happily tell you a run's final accuracy, loss curve, or config diff. What none of them do
+is check whether the *sentence you're about to write about those numbers* is actually
+supported by them.
+
+`experiment-audit` treats a result the way a careful reviewer would before publication:
+
+- Is there evidence behind this claim at all, or is it an assumption that snuck in?
+- Does the evidence actually match what's being claimed — same dataset, same protocol,
+  same scope — or is it being stretched to cover more than it proves?
+- Does anything else you've measured contradict it?
+- Is the confidence in the write-up proportional to the evidence, or borrowed from how
+  confident the result *felt*?
+
+This matters most for reproducibility, ablations, and the kind of paper-writing claims
+that are easy to overstate under deadline pressure — the exact places research claim
+verification tends to break down silently.
+
+<br>
+
+## Who is this for
+
+| | |
+|---|---|
+| **ML engineers** | sanity-check a result before it ships in a report or a PR description |
+| **AI researchers** | catch confounded ablations and out-of-scope comparisons before submission |
+| **Graduate students** | get reviewer-style feedback on a results section before your advisor does |
+| **Research labs** | a shared, deterministic check for scientific claims across a team's experiments |
+| **Academic / open-source projects** | structured, evidence-traced scientific reports instead of ad hoc write-ups |
+
+<br>
+
+## What the reasoning engine does
+
+Given a set of **claims** (*"model-x achieves 95% accuracy on CIFAR-10"*) and the
+**evidence** backing them (metrics, configs, logs, prior runs), the engine runs six rules
+in sequence and produces a `ScientificReport`:
+
+| # | Rule | What it checks |
+|---|------|-----------------|
+| 1 | **Missing evidence** | Does this claim have any supporting evidence trace at all? |
+| 2 | **Scope** | Does the evidence actually match the claim's stated scope (same dataset, same hardware, same evaluation protocol)? |
+| 3 | **Contradiction** | Does any other claim or evidence item conflict with this one? |
+| 4 | **Confidence** | A computed score, not a guess — based on evidence quality, quantity, contradictions found, and what's missing. |
+| 5 | **Judgment** | A verdict (supported / partially supported / unsupported) with the reasoning behind it. |
+| 6 | **Recommendation** | What to do about it — gather more evidence, narrow the claim's scope, retract it. |
+
+Every finding traces back to specific evidence. Nothing in the report is an unsupported
+assertion — that would rather defeat the point.
+
+> This is one of two reasoning pipelines in the package. The second, lower-level pipeline
+> (`ScientificReasoningEngine` — Evidence → Observations → Hypotheses → Confidence →
+> Judgment → Recommendation) is a more generic, extensible framework for injecting custom
+> hypothesis and confidence logic. Most people should start with the six-rule pipeline
+> above. See `src/experiment_audit/reasoning/__init__.py` for both.
+
+<br>
+
+## Features
+
+**Reasoning engine (the core)**
+
+- Claim and evidence modeling (`Claim`, `EvidenceItem`, `Scope`) with structured categories
+- Six-rule scientific reasoning pipeline, run end-to-end or rule-by-rule
+- Contradiction detection across claims and evidence
+- Confidence scoring driven by evidence quality/quantity, not a fixed heuristic
+- Structured `ScientificReport` — Markdown, JSON, or plain text
+- Zero network calls; runs entirely on data you provide
+
+**Interfaces around the engine**
+
+- **Python API** — `experiment_audit.reasoning`, for embedding the pipeline in your own tooling
+- **CLI** — `experiment-audit reasoning run|schema`
+- **Claude Code skill** — the reasoning discipline as an installable skill, with worked examples
+- **MCP server** — eight tools for auditing Weights & Biases runs directly from an agent
+- **Weights & Biases backend** — read-only run/sweep/metric access behind the MCP tools
+
+<br>
+
 ## Quick start: the MCP server (W&B audit tools)
 
-The original W&B experiment-audit tools are still here, unchanged, as an
-MCP integration. Set a **read-only** W&B API key:
+The original W&B `experiment-audit` tools are still here, unchanged, as an MCP
+integration. Set a **read-only** W&B API key:
 
 ```bash
 export WANDB_API_KEY="your-read-only-key"
@@ -163,53 +220,24 @@ export WANDB_ENTITY="your-team-or-username"   # optional
 claude mcp add -e WANDB_API_KEY=your-read-only-key experiment-audit -- experiment-audit-mcp
 ```
 
-> `-e` must come before the server name, not after — putting it after
-> the name has been a source of "Invalid environment variable format"
-> errors in some Claude Code versions.
+> `-e` must come before the server name, not after — putting it after the name has been a
+> source of "Invalid environment variable format" errors in some Claude Code versions.
 
 Then ask your agent something like:
 
 > "Did I mess up my memory-ablation run? Compare `mamfac-baseline` and
-> `mamfac-no-memory` in the `mamfac` project and check whether the only
-> real difference is `use_memory`."
+> `mamfac-no-memory` in the `mamfac` project and check whether the only real difference
+> is `use_memory`."
 
 The agent calls `audit_ablation`, which returns a verdict
-(`clean` / `confounded` / `uncertain`), a confidence level, and the full
-config diff it based that verdict on.
+(`clean` / `confounded` / `uncertain`), a confidence level, and the full config diff it
+based that verdict on.
 
 Full tool reference (all eight tools, exact schemas, methodology) is in
 [`docs/design-spec-v1.md`](docs/design-spec-v1.md) and
-[`docs/audit-methods.md`](docs/audit-methods.md) — unchanged from the
-v1.0.0 release.
+[`docs/audit-methods.md`](docs/audit-methods.md) — unchanged from the v1.0.0 release.
 
-## Quick start: as a Claude Code plugin
-
-The reasoning-engine discipline above — how to phrase findings, interpret
-uncertainty, evaluate contradictory evidence, review papers, and produce
-structured reports — is also packaged as a [Claude Code](https://docs.claude.com/claude-code)
-**skill**, distributed as a plugin under [`dev/experiment-audit-plugin/`](dev/experiment-audit-plugin/).
-It works standalone (reasoning directly over data you give Claude) and,
-when `WANDB_API_KEY` is set, also gets the eight MCP audit tools above.
-
-From inside a Claude Code session, in this repo:
-
-```
-/plugin marketplace add ./dev/experiment-audit-plugin
-/plugin install experiment-audit@experiment-audit
-```
-
-Pick **user scope** at the install prompt to make it available across
-all your projects, not just this repo. Once installed, it triggers
-automatically on prompts like *"is this ablation confounded,"* *"why
-did my loss crash,"* *"review this paper's results claim,"* or *"write
-reviewer feedback on this."*
-
-The plugin's `.mcp.json` points at the local build's console-script
-entry point (`experiment-audit-mcp`, from `[project.scripts]` in
-`pyproject.toml`) — if you install this package elsewhere, update the
-`command` path there to match. Full skill documentation (triggers, tool
-selection, reasoning discipline, worked examples) is in
-[`dev/experiment-audit-plugin/skills/experiment-audit/SKILL.md`](dev/experiment-audit-plugin/skills/experiment-audit/SKILL.md).
+<br>
 
 ## Architecture
 
@@ -250,120 +278,107 @@ experiment_audit/
     └── sensitivity.py
 ```
 
-The reasoning engine and the MCP/W&B layer are independent — the
-reasoning engine takes `Claim`s and `EvidenceItem`s directly and has no
-dependency on W&B, FastMCP, or any backend. Feeding W&B run data into the
-reasoning engine as claims/evidence (rather than hand-constructing them,
-as the quick-start example above does) is on the [roadmap](#roadmap).
+The reasoning engine and the MCP/W&B layer are independent — the reasoning engine takes
+`Claim`s and `EvidenceItem`s directly and has no dependency on W&B, FastMCP, or any
+backend. Feeding W&B run data into the reasoning engine as claims/evidence (rather than
+hand-constructing them, as the quick-start example above does) is on the
+[roadmap](#roadmap).
 
 For the reasoning engine's design rationale, see
 [`research/07_reasoning_engine/`](research/07_reasoning_engine/)
-(`reasoning-engine.md`, `reasoning-rules.md`, `confidence-system.md`,
-`evidence-model.md`, `scientific-reviewer.md`). For the MCP/W&B layer's
-frozen contract, see [`docs/design-spec-v1.md`](docs/design-spec-v1.md).
+(`reasoning-engine.md`, `reasoning-rules.md`, `confidence-system.md`, `evidence-model.md`,
+`scientific-reviewer.md`). For the MCP/W&B layer's frozen contract, see
+[`docs/design-spec-v1.md`](docs/design-spec-v1.md).
+
+<br>
 
 ## Data handling
 
-- Data never leaves your machine except calls to your own W&B endpoint
-  (MCP layer only — the reasoning engine itself makes no network calls
-  at all).
-- Credentials are read once from environment variables, validated
-  fail-fast on server start, and never logged.
+- Data never leaves your machine except calls to your own W&B endpoint (MCP layer only —
+  the reasoning engine itself makes no network calls at all).
+- Credentials are read once from environment variables, validated fail-fast on server
+  start, and never logged.
 - Use a **read-only** W&B API key — this server has no write path.
+
+<br>
 
 ## Known gaps (honest status)
 
-**Reasoning engine:**
+- No built-in adapter converts a W&B run directly into `Claim`s/`EvidenceItem`s yet — you
+  construct them yourself (CLI schema or Python), or write your own extraction step. This
+  is the top [roadmap](#roadmap) item.
+- The generic pipeline (`ScientificReasoningEngine`) defaults its rule-engine stage to a
+  no-op unless you inject one — it's an extensibility point, not a second complete
+  pipeline.
+- 274 tests pass (`pytest tests/ -q`); this is real coverage of the pipeline's mechanics,
+  not a substitute for domain review of the six rules' thresholds by someone in your
+  research area.
+- The MCP/W&B layer is W&B-only for now (MLflow is prototyped at the interface level, not
+  implemented), and `audit_sweep`'s correlation ranking only detects linear relationships.
 
-- There is currently no built-in adapter that converts a W&B run
-  directly into `Claim`s/`EvidenceItem`s — you construct them yourself
-  (via the CLI's JSON schema or directly in Python), or write your own
-  extraction step. Building this adapter is the natural next step to
-  connect the MCP/W&B layer to the reasoning engine directly.
-- The generic pipeline (`ScientificReasoningEngine`, `engine.py`)
-  defaults its rule-engine stage to a no-op (`NullRuleEngine`) unless you
-  inject one — it does not currently share the six concrete rules the
-  main pipeline uses. Treat it as an extensibility point, not a second
-  complete pipeline.
-- 274 tests pass (`pytest tests/ -q`), 32 of them exercising the
-  reasoning engine directly, including three regression tests for bugs
-  found and fixed during this release (see `CHANGELOG.md`). This is real
-  coverage of the pipeline's mechanics; it is not a substitute for
-  domain review of the six rules' actual thresholds and heuristics by
-  someone in your specific research area.
+Full detail, including what's blocked purely by this build environment's lack of live
+credentials, is in [`docs/design-spec-v1.md`](docs/design-spec-v1.md) and the
+[CHANGELOG](CHANGELOG.md).
 
-**MCP/W&B layer** (carried over from v1.0.0, unchanged):
-
-- Fixture recording against a real, live W&B project has not been
-  performed in this build environment (no live `WANDB_API_KEY` /
-  network access) — `WandbBackend` is tested against an in-memory fake
-  client built from W&B's documented API shapes.
-  `scripts/record_wandb_fixtures.py` is ready to run against your own
-  project. See `tests/fixtures/README.md`.
-- Tool-selection eval against a live MCP client has not been run in this
-  environment (no `ANTHROPIC_API_KEY` / network access). See
-  `docs/tool-selection-eval.md`.
-- This is a W&B-only release for the MCP layer; MLflow support is
-  prototyped at the interface level but not implemented.
-- `audit_sweep`'s correlation-based ranking only detects linear
-  relationships — see the sweep section of `docs/audit-methods.md`.
-
-None of these are architectural gaps. They're either genuinely deferred
-scope or blocked by this build environment's lack of live credentials —
-see [Roadmap](#roadmap).
+<br>
 
 ## Development
 
 ```bash
-git clone https://github.com/SreeDharshan-GJ/experiment-audit-mcp.git
-cd experiment-audit-mcp
+git clone https://github.com/SreeDharshan-GJ/experiment-audit.git
+cd experiment-audit
 pip install -e ".[dev]"
 pytest tests/ -q        # 274 tests
 ruff check src/ tests/  # lint
 ```
 
-The reasoning engine's tests need no network access or credentials at
-all — they run entirely on in-memory `Claim`/`Evidence` fixtures. The
-MCP/W&B layer's tests run against `FakeBackend`, an in-memory test double
-that can inject every adversarial state named in the design spec.
+The reasoning engine's tests need no network access or credentials at all — they run
+entirely on in-memory `Claim`/`Evidence` fixtures. The MCP/W&B layer's tests run against
+`FakeBackend`, an in-memory test double that can inject every adversarial state named in
+the design spec.
+
+<br>
 
 ## Contributing
 
-Contributions are welcome — please read [`CONTRIBUTING.md`](CONTRIBUTING.md)
-first.
+Contributions are welcome — please read [`CONTRIBUTING.md`](CONTRIBUTING.md) first.
 
-The MCP/W&B layer's v1 design (`docs/design-spec-v1.md`) is **frozen**:
-changes to its tool schemas, model fields, or backend interface need an
-explicit, logged design decision, not a silent PR. The reasoning
-engine's six rules and their thresholds are newer and more open to
-discussion — if you're proposing a change to rule logic (as opposed to
-wiring), explain the reasoning-quality tradeoff you're making, not just
-the code change.
+The MCP/W&B layer's v1 design (`docs/design-spec-v1.md`) is **frozen**: changes to its
+tool schemas, model fields, or backend interface need an explicit, logged design decision,
+not a silent PR. The reasoning engine's six rules and their thresholds are newer and more
+open to discussion — if you're proposing a change to rule logic (as opposed to wiring),
+explain the reasoning-quality tradeoff you're making, not just the code change.
+
+<br>
 
 ## Roadmap
 
-- **Near-term** — a W&B-run-to-claims/evidence adapter, so the MCP audit
-  tools can hand their findings directly to the reasoning engine instead
-  of requiring hand-built `Claim`/`EvidenceItem` objects.
-- **v2** — MLflow backend for the MCP layer, a versioned API
-  compatibility matrix, first public case study from a real project.
-- **v3** — RL-specific pathology signals, proper multi-seed statistical
-  tests, Optuna/Ray Tune sweep support, open to external `audit_*` and
-  reasoning-rule contributions.
+- **Near-term** — a W&B-run-to-claims/evidence adapter, so the MCP audit tools can hand
+  their findings directly to the reasoning engine instead of requiring hand-built
+  `Claim`/`EvidenceItem` objects.
+- **v2** — MLflow backend for the MCP layer, a versioned API compatibility matrix, first
+  public case study from a real project.
+- **v3** — RL-specific pathology signals, proper multi-seed statistical tests,
+  Optuna/Ray Tune sweep support, open to external `audit_*` and reasoning-rule
+  contributions.
+
+<br>
 
 ## Citing this project
 
-If `experiment-audit` was useful in your research or workflow, a citation
-or a link back is genuinely appreciated:
+If `experiment-audit` was useful in your research or workflow, a citation or a link back
+is genuinely appreciated:
 
 ```bibtex
 @software{experiment_audit,
   author  = {Sree Dharshan G J},
   title   = {experiment-audit: A Scientific Research Reasoning Engine for ML Experiments},
   year    = {2026},
-  url     = {https://github.com/SreeDharshan-GJ/experiment-audit-mcp}
+  url     = {https://github.com/SreeDharshan-GJ/experiment-audit}
 }
 ```
+
+<br>
 
 ## Author
 
@@ -371,8 +386,10 @@ Built and maintained by **Sree Dharshan G J**.
 
 [![GitHub](https://img.shields.io/badge/GitHub-SreeDharshan--GJ-181717?logo=github)](https://github.com/SreeDharshan-GJ)
 
-If this project is useful to you, a ⭐ on the repo is the easiest way to
-support it and helps others find it.
+If this project is useful to you, a star on the repo is the easiest way to support it and
+helps others find it.
+
+<br>
 
 ## License
 
