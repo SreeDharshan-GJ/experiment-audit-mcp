@@ -35,6 +35,7 @@ interface built around it.
 - [Install](#install)
 - [Quick start: the reasoning engine](#quick-start-the-reasoning-engine)
 - [Quick start: the MCP server (W&B audit tools)](#quick-start-the-mcp-server-wb-audit-tools)
+- [Quick start: as a Claude Code plugin](#quick-start-as-a-claude-code-plugin)
 - [Architecture](#architecture)
 - [Data handling](#data-handling)
 - [Known gaps (honest status)](#known-gaps-honest-status)
@@ -178,6 +179,35 @@ Full tool reference (all eight tools, exact schemas, methodology) is in
 [`docs/design-spec-v1.md`](docs/design-spec-v1.md) and
 [`docs/audit-methods.md`](docs/audit-methods.md) — unchanged from the
 v1.0.0 release.
+
+## Quick start: as a Claude Code plugin
+
+The reasoning-engine discipline above — how to phrase findings, interpret
+uncertainty, evaluate contradictory evidence, review papers, and produce
+structured reports — is also packaged as a [Claude Code](https://docs.claude.com/claude-code)
+**skill**, distributed as a plugin under [`dev/experiment-audit-plugin/`](dev/experiment-audit-plugin/).
+It works standalone (reasoning directly over data you give Claude) and,
+when `WANDB_API_KEY` is set, also gets the eight MCP audit tools above.
+
+From inside a Claude Code session, in this repo:
+
+```
+/plugin marketplace add ./dev/experiment-audit-plugin
+/plugin install experiment-audit@experiment-audit
+```
+
+Pick **user scope** at the install prompt to make it available across
+all your projects, not just this repo. Once installed, it triggers
+automatically on prompts like *"is this ablation confounded,"* *"why
+did my loss crash,"* *"review this paper's results claim,"* or *"write
+reviewer feedback on this."*
+
+The plugin's `.mcp.json` points at the local build's console-script
+entry point (`experiment-audit-mcp`, from `[project.scripts]` in
+`pyproject.toml`) — if you install this package elsewhere, update the
+`command` path there to match. Full skill documentation (triggers, tool
+selection, reasoning discipline, worked examples) is in
+[`dev/experiment-audit-plugin/skills/experiment-audit/SKILL.md`](dev/experiment-audit-plugin/skills/experiment-audit/SKILL.md).
 
 ## Architecture
 
