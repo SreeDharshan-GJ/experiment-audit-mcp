@@ -3,6 +3,69 @@
 All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.0] — 2026-07-15
+
+The Scientific Reasoning Engine becomes the project's primary,
+first-class capability, exposed through a public Python API and a new
+CLI, alongside the unchanged v1.0.0 MCP/W&B audit tools.
+
+### Added
+
+- `experiment_audit.reasoning` public API: `ScientificReasoningPipeline`
+  (the six-rule claim/evidence/contradiction/confidence/judgment/
+  recommendation pipeline), `ScientificReport`, `Claim`, `ClaimSet`,
+  `Evidence`, `EvidenceItem`, `Contradiction`, and the generic
+  `ScientificReasoningEngine`.
+- `experiment-audit` CLI (`experiment-audit reasoning run`,
+  `experiment-audit reasoning schema`) — run the reasoning pipeline
+  against a JSON file of claims/evidence and get a Markdown, JSON, or
+  plain-text scientific report.
+- 4 new regression tests covering bugs found during this release (see
+  below), plus recovery of the reasoning engine's full test suite (32
+  tests total for the reasoning package).
+
+### Fixed
+
+- **Broken CLI entry point.** `pyproject.toml`'s console script pointed
+  at `experiment_audit_mcp.server:main`, a module that no longer existed
+  after an earlier package rename to `experiment_audit`. Running the
+  installed CLI raised `ModuleNotFoundError` unconditionally. Fixed to
+  `experiment_audit.server:main`.
+- **Contradiction/rule engine was an empty stub.** `reasoning/rules.py`
+  contained a 5-line docstring and no logic; the six concrete rules
+  (`scientific_rules/*.py`) didn't exist in this branch's history at
+  all. Recovered from a separate development branch
+  (`reasoning/core-engine`) where the complete implementation had been
+  built and tested but never merged. No rule logic was written or
+  modified as part of this recovery.
+- **`ScientificReasoningEngine.review()` called `ConfidenceAssessor.assess()`
+  and `JudgmentGenerator.generate()` with the wrong number of arguments**
+  relative to their real implementations in `confidence.py`/`judgment.py`,
+  raising `TypeError` on every call with a non-null assessor/generator.
+  Fixed both call sites and their `Protocol` signatures.
+- **`ScientificReasoningPipeline.build_initial_context()` never passed
+  `observations`/`hypotheses` to `RuleContext`**, both required
+  fields with no default, raising `TypeError` on every call regardless
+  of arguments. Fixed by defaulting both to empty sets, since none of
+  the six rules read them.
+
+### Changed
+
+- README, package description, and keywords rewritten to lead with the
+  Scientific Reasoning Engine; the MCP server, W&B backend, and CLI are
+  now presented as integrations around it rather than as the product
+  itself. No tool schemas, model fields, or backend behavior changed —
+  this is a documentation and packaging-metadata change plus the fixes
+  and additions above.
+
+### Known gaps introduced by this release
+
+- No adapter yet converts a W&B run directly into `Claim`s/`EvidenceItem`s
+  — see README's Known Gaps section.
+- The generic `ScientificReasoningEngine` pipeline still defaults its
+  rule-engine stage to a no-op; it does not share the six concrete rules
+  the main pipeline uses.
+
 ## [1.0.0] — 2026-07-10
 
 Initial public release. W&B backend only, per the v1 scope in
@@ -52,4 +115,5 @@ Initial public release. W&B backend only, per the v1 scope in
   ABC (no per-call page size) and the `list_runs` MCP tool's spec'd
   signature (`page_size=25`).
 
+[1.1.0]: https://github.com/SreeDharshan-GJ/experiment-audit-mcp/releases/tag/v1.1.0
 [1.0.0]: https://github.com/<your-username>/experiment-audit-mcp/releases/tag/v1.0.0

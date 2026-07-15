@@ -162,7 +162,7 @@ class ScientificRuleEngine(Protocol[HypothesisT, RuleFindingT]):
 
 
 @runtime_checkable
-class ConfidenceAssessor(Protocol[RuleFindingT, ConfidenceT]):
+class ConfidenceAssessor(Protocol[HypothesisT, ConfidenceT]):
     """Computes confidence for a set of rule findings.
 
     Corresponds to reasoning-engine.md's "Confidence Estimation" step.
@@ -173,17 +173,13 @@ class ConfidenceAssessor(Protocol[RuleFindingT, ConfidenceT]):
     `confidence.py`; this `Protocol` only names the call site.
     """
 
-    def assess(
-        self,
-        observations: ObservationSet,
-        rule_findings: Sequence[RuleFindingT],
-    ) -> ConfidenceT:
-        """Return the computed confidence for `rule_findings`."""
+    def assess(self, hypotheses: Sequence[HypothesisT]) -> ConfidenceT:
+        """Return the computed confidence for `hypotheses`."""
         ...
 
 
 @runtime_checkable
-class JudgmentGenerator(Protocol[RuleFindingT, ConfidenceT, JudgmentT]):
+class JudgmentGenerator(Protocol[ConfidenceT, JudgmentT]):
     """Renders scientific judgments from rule findings and confidence.
 
     Corresponds to reasoning-engine.md's "Scientific Judgment" step, and
@@ -195,12 +191,8 @@ class JudgmentGenerator(Protocol[RuleFindingT, ConfidenceT, JudgmentT]):
     not this module's.
     """
 
-    def generate(
-        self,
-        rule_findings: Sequence[RuleFindingT],
-        confidence: ConfidenceT,
-    ) -> Sequence[JudgmentT]:
-        """Return every judgment `rule_findings` and `confidence` support."""
+    def generate(self, confidence: ConfidenceT) -> Sequence[JudgmentT]:
+        """Return every judgment `confidence` supports."""
         ...
 
 
@@ -344,8 +336,8 @@ class ScientificReasoningEngine(
         self,
         *,
         hypothesis_generator: HypothesisGenerator[HypothesisT],
-        confidence_assessor: ConfidenceAssessor[RuleFindingT, ConfidenceT],
-        judgment_generator: JudgmentGenerator[RuleFindingT, ConfidenceT, JudgmentT],
+        confidence_assessor: ConfidenceAssessor[HypothesisT, ConfidenceT],
+        judgment_generator: JudgmentGenerator[ConfidenceT, JudgmentT],
         recommendation_generator: RecommendationGenerator[JudgmentT, RecommendationT],
         rule_engine: ScientificRuleEngine[HypothesisT, RuleFindingT] | None = None,
         observation_extractor: ObservationExtractor | None = None,
@@ -356,10 +348,10 @@ class ScientificReasoningEngine(
             hypothesis_generator: Turns `Observation`s into hypotheses.
                 Required -- this pipeline has no meaningful default
                 reading of "no hypothesis generator".
-            confidence_assessor: Computes confidence for rule findings.
+            confidence_assessor: Computes confidence for hypotheses.
                 Required, for the same reason.
-            judgment_generator: Renders judgments from rule findings and
-                confidence. Required, for the same reason.
+            judgment_generator: Renders judgments from confidence.
+                Required, for the same reason.
             recommendation_generator: Derives recommendations from
                 judgments. Required, for the same reason.
             rule_engine: Evaluates scientific rules against observations
@@ -406,8 +398,8 @@ class ScientificReasoningEngine(
         observations = self._observation_extractor.extract(evidence)
         hypotheses = tuple(self._hypothesis_generator.generate(observations))
         rule_findings = tuple(self._rule_engine.evaluate(observations, hypotheses))
-        confidence = self._confidence_assessor.assess(observations, rule_findings)
-        judgments = tuple(self._judgment_generator.generate(rule_findings, confidence))
+        confidence = self._confidence_assessor.assess(hypotheses)
+        judgments = tuple(self._judgment_generator.generate(confidence))
         recommendations = tuple(self._recommendation_generator.generate(judgments))
 
         return ReasoningResult(

@@ -1,14 +1,19 @@
 [project]
 name = "experiment-audit"
-version = "1.0.0"
-description = "MCP server for auditing ML experiments (W&B): confounded ablations, training-curve pathologies, and misleading sweep conclusions."
+version = "1.1.0"
+description = "Scientific Research Reasoning Engine for ML experiments: claim/evidence review, contradiction detection, confidence scoring, and structured scientific reports. Includes an MCP server and CLI for W&B experiment auditing."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [
     { name = "Sree Dharshan G J" },
 ]
-keywords = ["mcp", "model-context-protocol", "wandb", "ml", "experiment-tracking", "reinforcement-learning"]
+keywords = [
+    "scientific-reasoning", "research-automation", "experimental-analysis",
+    "claim-verification", "experiment-reproducibility", "research-reports",
+    "llm-reasoning", "machine-learning-research",
+    "mcp", "model-context-protocol", "wandb", "ml", "experiment-tracking", "reinforcement-learning",
+]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -32,7 +37,8 @@ Changelog = "https://github.com/SreeDharshan-GJ/experiment-audit-mcp/blob/main/C
 Issues = "https://github.com/SreeDharshan-GJ/experiment-audit-mcp/issues"
 
 [project.scripts]
-experiment-audit-mcp = "experiment_audit_mcp.server:main"
+experiment-audit-mcp = "experiment_audit.server:main"
+experiment-audit = "experiment_audit.cli:main"
 
 [project.optional-dependencies]
 dev = [

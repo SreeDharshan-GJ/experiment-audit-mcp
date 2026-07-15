@@ -1,35 +1,33 @@
-# experiment-audit-mcp
+# experiment-audit
 
-**Your agent can catch confounded ablations, training pathologies, and
-misleading sweep conclusions across dozens of runs that you'd otherwise
-have to notice by eye — this is leverage on researcher attention, not
-another dashboard.**
+**A scientific reasoning engine for ML experiments: it takes claims and
+evidence, checks the claims for missing support and internal
+contradictions, scores confidence, and renders a structured scientific
+report — the kind of review a careful advisor would give your results
+before you write them up.**
 
-`experiment-audit-mcp` is an [MCP](https://modelcontextprotocol.io) server
-that sits on top of your W&B project and gives an agent (or you, directly)
-eight tools split cleanly into two kinds: cheap deterministic retrieval,
-and heuristic judgment that always shows its work. It does not visualize
-anything and does not replace your dashboard — it exists for the one thing
-dashboards are bad at and LLMs are worse at: reliably comparing dozens of
-floats across dozens of runs without hand-waving.
+The engine is the core of this project. Everything else — the MCP
+server, the W&B backend, the CLI, the Python package — is an interface
+built around it.
 
-Status: **v1.0.0**, W&B backend only. All ten roadmap milestones are
-complete and reviewed. Two verification steps remain genuinely blocked by
-this environment's sandbox constraints (no live W&B credentials, no live
-Anthropic API access) rather than skipped — see
-[Known Gaps](#known-gaps-honest-status) below before you rely on this in
-production.
+Status: **v1.1.0**. The reasoning engine (six-rule pipeline: missing
+evidence → scope → contradiction → confidence → judgment →
+recommendation) is implemented, tested end-to-end, and exposed through a
+public Python API and a CLI. The original W&B audit tools (eight MCP
+tools: confounded ablations, training-curve pathologies, misleading
+sweep conclusions) remain fully functional as the MCP integration layer.
+See [Known Gaps](#known-gaps-honest-status) for what's genuinely
+unverified before you rely on this in production.
 
 ---
 
 ## Contents
 
-- [Why this exists](#why-this-exists)
+- [What the reasoning engine does](#what-the-reasoning-engine-does)
 - [Install](#install)
-- [Quick start](#quick-start)
-- [The eight tools](#the-eight-tools)
+- [Quick start: the reasoning engine](#quick-start-the-reasoning-engine)
+- [Quick start: the MCP server (W&B audit tools)](#quick-start-the-mcp-server-wb-audit-tools)
 - [Architecture](#architecture)
-- [API examples](#api-examples)
 - [Data handling](#data-handling)
 - [Known gaps (honest status)](#known-gaps-honest-status)
 - [Development](#development)
@@ -37,35 +35,44 @@ production.
 - [Roadmap](#roadmap)
 - [License](#license)
 
-## Why this exists
+## What the reasoning engine does
 
-Three specific, recurring failure modes motivated this project:
+Given a set of **claims** ("model-x achieves 95% accuracy on CIFAR-10")
+and the **evidence** backing them (metrics, configs, logs, prior runs),
+the engine runs six rules in sequence and produces a `ScientificReport`:
 
-1. **Confounded ablations.** You change `use_memory: false` to test an
-   ablation, but `batch_size` also silently changed between runs. The
-   metric delta you're about to write up isn't measuring what you think
-   it's measuring.
-2. **Training pathologies that are easy to miss by eye** across dozens of
-   runs and metrics — a NaN mid-curve that got silently dropped by a
-   plotting library, a plateau that looks like convergence, a jagged
-   oscillation.
-3. **Misleading sweep conclusions** — a "most important hyperparameter"
-   claim from a 3-run sweep, or two hyperparameters that move together so
-   an importance ranking attributes one's effect to the other.
+1. **Missing evidence** — does this claim have any supporting evidence
+   trace at all?
+2. **Scope** — does the evidence actually match the claim's stated scope
+   (same dataset, same hardware, same evaluation protocol)?
+3. **Contradiction** — does any other claim or evidence item conflict
+   with this one?
+4. **Confidence** — a computed score, not a guess, based on evidence
+   quality, quantity, contradictions found, and what's missing.
+5. **Judgment** — a verdict (e.g. supported / partially supported /
+   unsupported) with the reasoning behind it.
+6. **Recommendation** — what to do about it (gather more evidence,
+   narrow the claim's scope, retract it, etc.).
 
-`experiment-audit-mcp` gives an agent tools that refuse to be wrong quietly
-about any of these. See the design spec's non-negotiable design
-principles (`docs/design-spec-v1.md` §1) for the four rules every tool
-follows.
+Every finding traces back to specific evidence — nothing in the report
+is an unsupported assertion.
+
+This is one of two reasoning pipelines in the package. The second,
+lower-level pipeline (`ScientificReasoningEngine` — Evidence →
+Observations → Hypotheses → Confidence → Judgment → Recommendation) is a
+more generic, extensible framework for injecting custom hypothesis and
+confidence logic; most people should start with the six-rule pipeline
+above. See `src/experiment_audit/reasoning/__init__.py` for both.
 
 ## Install
 
 Requires Python 3.11+.
 
-**Not yet published to PyPI** (see [Known Gaps](#known-gaps-honest-status) —
-the package name is reserved but no release has been pushed there yet), so
-`pip install experiment-audit-mcp` will currently fail with "No matching
-distribution found." Until it's published, install from source instead:
+```bash
+pip install experiment-audit
+```
+
+Or from source:
 
 ```bash
 git clone https://github.com/SreeDharshan-GJ/experiment-audit-mcp.git
@@ -73,17 +80,53 @@ cd experiment-audit-mcp
 pip install -e .
 ```
 
-Once a release is published to PyPI, `pip install experiment-audit-mcp` will
-also work.
+## Quick start: the reasoning engine
 
-Set your credentials (a **read-only** W&B API key is recommended — this
-server never writes to your project):
+**As a CLI:**
+
+```bash
+experiment-audit reasoning schema > claims.json   # see the expected input shape
+# edit claims.json with your own claims/evidence, then:
+experiment-audit reasoning run --input claims.json --format markdown
+```
+
+Also supports `--format json` and `--format text`, and `--output <path>`
+to write the report to a file instead of stdout.
+
+**As a Python library:**
+
+```python
+from experiment_audit.reasoning import (
+    ScientificReasoningPipeline,
+    ScientificReport,
+    Claim, ClaimCategory, Scope,
+    EvidenceItem, EvidenceKind,
+)
+
+claim = Claim(
+    id="c1",
+    subject="model-x",
+    statement="model-x achieves 95% accuracy on CIFAR-10",
+    category=ClaimCategory.PERFORMANCE,
+    scope=Scope(dataset="cifar-10"),
+)
+
+pipeline = ScientificReasoningPipeline()
+context = pipeline.build_initial_context(claims=[claim], evidence=[])
+pipeline_report = pipeline.execute(context)
+report = ScientificReport.from_pipeline_report(pipeline_report)
+
+print(report.to_markdown())
+```
+
+## Quick start: the MCP server (W&B audit tools)
+
+The original W&B experiment-audit tools are still here, unchanged, as an
+MCP integration. Set a **read-only** W&B API key:
 
 ```bash
 export WANDB_API_KEY="your-read-only-key"
-# Optional: only needed if your key's default entity isn't the one you
-# want to query against.
-export WANDB_ENTITY="your-team-or-username"
+export WANDB_ENTITY="your-team-or-username"   # optional
 ```
 
 Add it to your MCP client config. For Claude Desktop
@@ -112,225 +155,119 @@ claude mcp add -e WANDB_API_KEY=your-read-only-key experiment-audit -- experimen
 `-e` after the name has been a source of "Invalid environment variable
 format" errors in some Claude Code versions.)
 
-Or run it directly (useful for testing with the
-[MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector)):
-
-```bash
-npx @modelcontextprotocol/inspector experiment-audit-mcp
-```
-
-## Quick start
-
-Once connected, ask your agent something like:
+Then ask your agent something like:
 
 > "Did I mess up my memory-ablation run? Compare `mamfac-baseline` and
 > `mamfac-no-memory` in the `mamfac` project and check whether the only
 > real difference is `use_memory`."
 
-The agent will call `audit_ablation`, which returns a verdict
+The agent calls `audit_ablation`, which returns a verdict
 (`clean` / `confounded` / `uncertain`), a confidence level, and the full
-config diff it based that verdict on — not just an assertion.
+config diff it based that verdict on.
 
-> "Why did the reward on run `xj29fk1a` crash around step 40,000?"
-
-The agent will call `audit_training_curve`, which fetches the metric's
-full history and returns scored signals (null values, sudden jumps, flat
-plateaus, oscillation) with the exact step range and evidence for each —
-never a bare label.
-
-> "Which hyperparameter actually mattered in my `lr-sweep` sweep?"
-
-The agent will call `audit_sweep`, which refuses to rank anything below
-10 usable runs, and flags any hyperparameter pairs that moved together
-so you don't mistake one's effect for the other's.
-
-## The eight tools
-
-Tools are named so the trust level is visible in the name itself, not
-buried in the docs — a `get_*`/`list_*` result is a deterministic fact; a
-`compare_*` result is deterministic computation over multiple runs; an
-`audit_*` result is a heuristic judgment that **always** carries `method`,
-`confidence`, and `evidence` fields, enforced at the schema level (see
-`docs/design-spec-v1.md` §4.1).
-
-| Tool | Kind | What it does |
-|---|---|---|
-| `test_connection` | retrieval | Validates W&B credentials against the real API; call it explicitly (e.g. as your first tool call in a session) — it is not invoked automatically on server start. Only presence of `WANDB_API_KEY` is checked automatically at startup (fail-fast if missing), not that the key actually works. |
-| `list_runs` | retrieval | Cheap, paginated run listing (id/name/tags/status only — no config or metrics). |
-| `get_run_summary` | retrieval | Full config + summary metrics + `data_completeness` for one run. |
-| `get_metric_history` | retrieval | Full point-by-point history for one metric on one run. |
-| `compare_runs` | diffing | Config + metric diff across N runs (not just pairwise). No verdict — just the facts. |
-| `audit_training_curve` | judgment | Scored signals over a metric history: `null_values`, `sudden_jump`, `low_variance_plateau`, `high_frequency_oscillation`. |
-| `audit_ablation` | judgment | Verdict (`clean`/`confounded`/`uncertain`) on whether an ablation pair actually isolates `claimed_variable`. |
-| `audit_sweep` | judgment | Hyperparameter importance ranking with a hard 10-run floor and co-varying-parameter warnings. |
-
-Full methodology — exact thresholds, formulas, and the reasoning behind
-each detector — lives in `docs/audit-methods.md`. Tool descriptions in
-the MCP schema itself stay short and point here, so they don't cost
-context budget on every conversational turn.
+Full tool reference (all eight tools, exact schemas, methodology) is in
+`docs/design-spec-v1.md` and `docs/audit-methods.md` — unchanged from the
+v1.0.0 release.
 
 ## Architecture
 
 ```
 experiment_audit/
-├── models.py            # RunRef, Run, MetricPoint, MetricHistory, Sweep, Page[T]
-├── errors.py             # ToolError + the frozen error_type taxonomy
-├── auth.py               # env-var credential handling, fail-fast
-├── server.py             # FastMCP entrypoint; registers all 8 tools
+├── reasoning/                 # the Scientific Reasoning Engine
+│   ├── claims.py               # Claim, ClaimSet, Scope
+│   ├── evidence.py              # Evidence, EvidenceItem (shared by both pipelines)
+│   ├── contradictions.py        # Contradiction, ContradictionSet
+│   ├── scientific_rules/        # the six concrete rules
+│   │   ├── missing_evidence_rule.py
+│   │   ├── scope_rule.py
+│   │   ├── contradiction_rule.py
+│   │   ├── confidence_rule.py
+│   │   ├── judgment_rule.py
+│   │   └── recommendation_rule.py
+│   ├── rules.py                 # RuleContext, ScientificRule base
+│   ├── pipeline.py              # ScientificReasoningPipeline: runs the six rules in order
+│   ├── scientific_report.py     # ScientificReport: to_markdown/to_json/to_text
+│   ├── observations.py          # generic pipeline: pattern detection over Evidence
+│   ├── hypotheses.py             # generic pipeline: candidate explanations
+│   ├── confidence.py             # generic pipeline: confidence scoring
+│   ├── judgment.py                # generic pipeline: verdict rendering
+│   ├── recommendation.py          # generic pipeline: recommendations
+│   └── engine.py                  # ScientificReasoningEngine: the generic pipeline's orchestrator
+├── cli.py                     # `experiment-audit reasoning run|schema`
+├── models.py                  # RunRef, Run, MetricPoint, MetricHistory, Sweep, Page[T]
+├── errors.py                  # ToolError + the frozen error_type taxonomy
+├── server.py                  # FastMCP entrypoint; registers the 8 W&B audit tools
 ├── backends/
-│   ├── base.py           # ExperimentBackend ABC, BackendCapability
-│   ├── fake_backend.py   # in-memory test double (adversarial-state injectable)
-│   └── wandb_backend.py  # real W&B implementation
-└── analysis/
-    ├── comparison.py      # compare_runs (pure diffing)
-    ├── divergence.py       # audit_training_curve's 4 signal detectors
-    ├── confound.py         # audit_ablation's allowlist + verdict logic
-    └── sensitivity.py       # audit_sweep's correlation + significance testing
+│   ├── base.py                # ExperimentBackend ABC, BackendCapability
+│   ├── fake_backend.py        # in-memory test double
+│   └── wandb_backend.py       # real W&B implementation
+└── analysis/                  # the W&B audit tools' pure heuristics
+    ├── comparison.py
+    ├── divergence.py
+    ├── confound.py
+    └── sensitivity.py
 ```
 
-Two decisions worth understanding before you read the code:
+The reasoning engine and the MCP/W&B layer are independent — the
+reasoning engine takes `Claim`s and `EvidenceItem`s directly and has no
+dependency on W&B, FastMCP, or any backend. Feeding W&B run data into the
+reasoning engine as claims/evidence (rather than hand-constructing them,
+as the quick-start example above does) is on the roadmap — see below.
 
-- **Retrieval and judgment are structurally separate**, all the way down.
-  Every `audit_*` tool at the `server.py` layer does nothing but fetch
-  data and translate backend errors into structured `ToolError` dicts;
-  the actual heuristics live entirely in `analysis/`, which has no
-  knowledge an MCP call is even involved. You can unit-test
-  `analysis/divergence.py`'s detectors against a hand-built curve with
-  zero backend, zero MCP, zero network.
-- **Backends are capability-declared, not blanket-abstract.** `list_sweeps`
-  has a default `NotSupportedError` implementation rather than being a
-  required abstract method, so a future backend without a native sweep
-  concept (MLflow, planned for v2) can declare `capabilities = {ARTIFACTS}`
-  and get a clear refusal instead of a fake mapping. See Appendix A of the
-  design spec for how this was validated against MLflow's actual shape
-  before being frozen.
-
-For the full frozen contract (every field, every tool signature, every
-adversarial case it's tested against) see `docs/design-spec-v1.md`. For
-how it was built, milestone by milestone, including every design flaw
-caught and fixed along the way, see
-`docs/implementation-roadmap-v1.md`.
-
-## API examples
-
-Every audit tool call looks like this over MCP (shown here as the raw
-tool-call JSON an MCP client sends/receives — you won't normally write
-this by hand, your agent does):
-
-**Checking an ablation:**
-
-```json
-{
-  "tool": "audit_ablation",
-  "arguments": {
-    "baseline": {"backend": "wandb", "entity": "your-team", "project": "mamfac", "run_id": "baseline-run-id"},
-    "ablation": {"backend": "wandb", "entity": "your-team", "project": "mamfac", "run_id": "ablation-run-id"},
-    "claimed_variable": "use_memory"
-  }
-}
-```
-
-```json
-{
-  "verdict": "confounded",
-  "confidence": "high",
-  "differing_params": [
-    {"param": "use_memory", "baseline_value": true, "ablation_value": false, "likely_intentional": true},
-    {"param": "batch_size", "baseline_value": 64, "ablation_value": 32, "likely_intentional": false}
-  ],
-  "method": "full config diff against claimed_variable; params tagged intentional if name matches claimed_variable or is on the allowlist (seed, device, run name/id)",
-  "evidence": { "...": "full compare_runs-style diff, config and metrics" }
-}
-```
-
-**Auditing a training curve:**
-
-```json
-{
-  "tool": "audit_training_curve",
-  "arguments": {
-    "ref": {"backend": "wandb", "entity": "your-team", "project": "mamfac", "run_id": "xj29fk1a"},
-    "metric": "reward"
-  }
-}
-```
-
-```json
-{
-  "schema_version": 2,
-  "metric_type_assumed": "reward",
-  "signals": [
-    {
-      "signal": "sudden_jump",
-      "score": 0.91,
-      "step_range": [40120, 40140],
-      "evidence": { "...": "the adjacent point pair and rate-of-change values" },
-      "confidence": "high"
-    }
-  ],
-  "method": "threshold-based, see docs/audit-methods.md#training-curve"
-}
-```
-
-Every field in these responses is real output shape from the current
-implementation, not aspirational. See `docs/design-spec-v1.md` §4.2 for
-the complete, frozen schema of every tool.
+For the reasoning engine's design rationale, see
+`research/07_reasoning_engine/` (`reasoning-engine.md`,
+`reasoning-rules.md`, `confidence-system.md`, `evidence-model.md`,
+`scientific-reviewer.md`). For the MCP/W&B layer's frozen contract, see
+`docs/design-spec-v1.md`.
 
 ## Data handling
 
-- Data never leaves your machine except calls to your own W&B endpoint.
-  This server is stateless and open source — read the code, there's
-  nowhere for your data to go.
-- Credentials are read once from environment variables (`WANDB_API_KEY`,
-  optionally `WANDB_ENTITY`), validated fail-fast on server start, and
-  never logged or echoed back in any error message.
-- Use a **read-only** API key. This server has no write path to W&B —
-  a read-only key is strictly sufficient and reduces what a
-  misconfigured or compromised client could ever do.
+- Data never leaves your machine except calls to your own W&B endpoint
+  (MCP layer only — the reasoning engine itself makes no network calls
+  at all).
+- Credentials are read once from environment variables, validated
+  fail-fast on server start, and never logged.
+- Use a **read-only** W&B API key — this server has no write path.
 
 ## Known gaps (honest status)
 
-Two verification steps that this project's own completion criteria call
-for are **written and ready to run, but have not actually been run**,
-because this build environment has no live network path to the relevant
-services. Documented here rather than silently marked done:
+**Reasoning engine:**
 
-1. **Fixture recording against a real W&B project** — `tests/` currently
-   test `WandbBackend` against an in-memory fake client built from W&B's
-   *documented* API shapes, not against fixtures recorded from a live
-   project. `scripts/record_wandb_fixtures.py` exists and is ready to run
-   against your own project (e.g. a MAMFAC/CARM++ project) to close this
-   gap. See `tests/fixtures/README.md`.
-2. **Tool-selection eval against a live MCP client** —
-   `scripts/tool_selection_eval.py` and its 15-prompt fixed set
-   (`scripts/tool_selection_prompts.py`) exist and are exercised for
-   correctness up to the actual API call, but have not been run against
-   a live model (this environment has no `ANTHROPIC_API_KEY` / network
-   path to `api.anthropic.com`). See `docs/tool-selection-eval.md` for
-   the exact command to run this yourself.
+- There is currently no built-in adapter that converts a W&B run
+  directly into `Claim`s/`EvidenceItem`s — you construct them yourself
+  (via the CLI's JSON schema or directly in Python), or write your own
+  extraction step. Building this adapter is the natural next step to
+  connect the MCP/W&B layer to the reasoning engine directly.
+- The generic pipeline (`ScientificReasoningEngine`, `engine.py`)
+  defaults its rule-engine stage to a no-op (`NullRuleEngine`) unless you
+  inject one — it does not currently share the six concrete rules the
+  main pipeline uses. Treat it as an extensibility point, not a second
+  complete pipeline.
+- 274 tests pass (`pytest tests/ -q`), 32 of them exercising the
+  reasoning engine directly, including three regression tests for bugs
+  found and fixed during this release (see CHANGELOG). This is real
+  coverage of the pipeline's mechanics; it is not a substitute for
+  domain review of the six rules' actual thresholds and heuristics by
+  someone in your specific research area.
 
-Additionally, as of this release:
+**MCP/W&B layer (carried over from v1.0.0, unchanged):**
 
-- **Package name availability**: `experiment-audit-mcp` was confirmed
-  unclaimed on both PyPI and npm as of 2026-07-10. This is a point-in-time
-  check, not a lock — verify again immediately before publishing if time
-  has passed.
-- **MCP Registry / Glama / cursor.directory submission** has not been
-  performed from this environment (no outbound network access to those
-  services from here). The package is publish-ready; registry submission
-  is a step for whoever runs the actual release from a machine with that
-  access.
-- This is a **v1, W&B-only** release. MLflow support is prototyped at the
-  interface level (see Appendix A of the design spec) but not implemented.
-- `audit_sweep`'s correlation-based ranking only detects *linear*
-  relationships — a hyperparameter with a non-monotonic effect (e.g. an
-  interior-optimum learning rate) can rank near the bottom despite
-  mattering most. This is a documented method limitation, not a bug; see
-  `docs/audit-methods.md` (sweep section).
+- Fixture recording against a real, live W&B project has not been
+  performed in this build environment (no live `WANDB_API_KEY` /
+  network access) — `WandbBackend` is tested against an in-memory fake
+  client built from W&B's documented API shapes. `scripts/record_wandb_fixtures.py`
+  is ready to run against your own project. See `tests/fixtures/README.md`.
+- Tool-selection eval against a live MCP client has not been run in this
+  environment (no `ANTHROPIC_API_KEY` / network access). See
+  `docs/tool-selection-eval.md`.
+- This is a W&B-only release for the MCP layer; MLflow support is
+  prototyped at the interface level but not implemented.
+- `audit_sweep`'s correlation-based ranking only detects linear
+  relationships — see `docs/audit-methods.md` (sweep section).
 
-None of these gaps are architectural. They are either genuine sandbox
-network limitations or explicitly deferred v2/v3 scope per the frozen
-roadmap — see Roadmap below.
+None of these are architectural gaps. They're either genuinely deferred
+scope or blocked by this build environment's lack of live credentials —
+see Roadmap.
 
 ## Development
 
@@ -338,39 +275,35 @@ roadmap — see Roadmap below.
 git clone https://github.com/SreeDharshan-GJ/experiment-audit-mcp.git
 cd experiment-audit-mcp
 pip install -e ".[dev]"
-pytest                # 350 tests
-ruff check .          # lint
+pytest tests/ -q       # 274 tests
+ruff check src/ tests/ # lint
 ```
 
-Everything is developed against `FakeBackend` (`backends/fake_backend.py`),
-an in-memory test double that can inject every adversarial state named in
-the design spec (tiny sweeps, NaN mid-curve, correlated hyperparameters,
-partial data) on demand — no live W&B credentials or network access needed
-to run the full suite.
+The reasoning engine's tests need no network access or credentials at
+all — they run entirely on in-memory `Claim`/`Evidence` fixtures. The
+MCP/W&B layer's tests run against `FakeBackend`, an in-memory test double
+that can inject every adversarial state named in the design spec.
 
 ## Contributing
 
-Contributions are welcome. Please read `CONTRIBUTING.md` first — in
-short: the v1 design (`docs/design-spec-v1.md`) is frozen, so changes to
-existing tool schemas, model fields, or the backend interface need an
-explicit, logged design decision (a "Revision" entry in the spec,
-following the pattern of Revision 1 and Revision 2 already in the
-document), not a silent PR. New `audit_*` tools in future versions must
-implement the mandatory `method` / `confidence` / `evidence` schema from
-day one (spec §8).
+Contributions are welcome. Please read `CONTRIBUTING.md` first. The
+MCP/W&B layer's v1 design (`docs/design-spec-v1.md`) is frozen — changes
+to its tool schemas, model fields, or backend interface need an explicit
+logged design decision, not a silent PR. The reasoning engine's six
+rules and their thresholds are newer and more open to discussion; if
+you're proposing a change to rule logic (as opposed to wiring), explain
+the reasoning-quality tradeoff you're making, not just the code change.
 
 ## Roadmap
 
-See `docs/implementation-roadmap-v1.md` for the full v1 build history (10
-milestones, 2 logged spec revisions, all approved). Looking ahead, per
-`docs/design-spec-v1.md` §10:
-
-- **v2** — MLflow backend, versioned API compatibility matrix, first
-  public case study from a real project.
-- **v3** — RL-specific pathology signals (reward-hacking heuristics,
-  proper multi-seed statistical tests), optional experimental
-  `claimed_variable` inference for `audit_ablation`, Optuna/Ray Tune
-  sweep support, open to external `audit_*` contributions.
+- **Near-term** — a W&B-run-to-claims/evidence adapter, so the MCP audit
+  tools can hand their findings directly to the reasoning engine instead
+  of requiring hand-built `Claim`/`EvidenceItem` objects.
+- **v2** — MLflow backend for the MCP layer, versioned API compatibility
+  matrix, first public case study from a real project.
+- **v3** — RL-specific pathology signals, proper multi-seed statistical
+  tests, Optuna/Ray Tune sweep support, open to external `audit_*` and
+  reasoning-rule contributions.
 
 ## License
 
