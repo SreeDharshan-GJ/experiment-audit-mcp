@@ -1,8 +1,22 @@
-# Contributing to experiment-audit-mcp
+# Contributing to experiment-audit
 
-Thanks for considering a contribution. Before opening a PR, please read
-this in full — the project's biggest source of accidental churn would be
-a well-intentioned change that quietly breaks the frozen v1 contract.
+Thanks for considering a contribution — whether that's a bug report, a new
+reasoning rule, or a fix to the MCP/W&B layer, it's welcome here. Before
+opening a PR, please read this in full. The project has two parts with
+different contribution rules, and the biggest source of accidental churn
+would be a well-intentioned change that quietly breaks the frozen v1
+contract described below.
+
+## Two parts, two sets of rules
+
+- **The reasoning engine** (`src/experiment_audit/reasoning/`) is newer and
+  more open to discussion. If you're proposing a change to one of the six
+  rules' logic or thresholds — not just wiring — explain the
+  reasoning-quality tradeoff you're making in the PR description, not just
+  the code change. New rules, a better confidence formula, or a smarter
+  contradiction check are all welcome discussions.
+- **The MCP/W&B layer** (`server.py`, `backends/`, `analysis/`) implements a
+  frozen v1 design. See the next section before touching it.
 
 ## The v1 design is frozen
 
@@ -51,8 +65,8 @@ how useful the underlying heuristic is.
 ## Development setup
 
 ```bash
-git clone https://github.com/<your-username>/experiment-audit-mcp.git
-cd experiment-audit-mcp
+git clone https://github.com/SreeDharshan-GJ/experiment-audit.git
+cd experiment-audit
 pip install -e ".[dev]"
 pytest
 ruff check .
