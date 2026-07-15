@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="docs/assets/banner.svg" alt="experiment-audit — a scientific reasoning engine for ML experiments" width="100%">
-
 # experiment-audit
 
 **A scientific reasoning engine for ML experiments.**
