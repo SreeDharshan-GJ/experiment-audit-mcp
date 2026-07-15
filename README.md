@@ -393,3 +393,40 @@ helps others find it.
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
+<svg width="720" height="56" viewBox="0 0 720 56" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Integrations: Claude Code, MCP, Weights and Biases, Python, CLI</title>
+  <desc id="desc">Pill badges listing experiment-audit's supported integrations</desc>
+
+  <rect x="0" y="0" width="720" height="56" fill="none"/>
+
+  <g font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="500">
+
+    <!-- Claude Code -->
+    <rect x="0" y="12" width="132" height="32" rx="16" fill="#151922" stroke="#2A303C" stroke-width="1"/>
+    <path d="M14 28 l2.4 -5.4 L18.8 28 l-2.4 5.4 Z M11.6 28 h5.6 M14.4 22.6 v10.8" stroke="#F0B37E" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <text x="27" y="32.5" fill="#E5E7EB">Claude Code</text>
+
+    <!-- MCP -->
+    <rect x="140" y="12" width="70" height="32" rx="16" fill="#151922" stroke="#2A303C" stroke-width="1"/>
+    <circle cx="154" cy="28" r="3.4" fill="none" stroke="#5EEAD4" stroke-width="1.4"/>
+    <text x="163" y="32.5" fill="#E5E7EB">MCP</text>
+
+    <!-- Weights and Biases -->
+    <rect x="218" y="12" width="130" height="32" rx="16" fill="#151922" stroke="#2A303C" stroke-width="1"/>
+    <path d="M231 32 l2.2 -8 l2.2 5.5 l2.2 -5.5 l2.2 8" fill="none" stroke="#FBBF24" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="244" y="32.5" fill="#E5E7EB">Weights &amp; Biases</text>
+
+    <!-- Python -->
+    <rect x="356" y="12" width="88" height="32" rx="16" fill="#151922" stroke="#2A303C" stroke-width="1"/>
+    <circle cx="370" cy="25" r="3" fill="#60A5FA"/>
+    <circle cx="370" cy="31" r="3" fill="#FDE68A"/>
+    <text x="380" y="32.5" fill="#E5E7EB">Python</text>
+
+    <!-- CLI -->
+    <rect x="452" y="12" width="66" height="32" rx="16" fill="#151922" stroke="#2A303C" stroke-width="1"/>
+    <path d="M463 24 l4 4 l-4 4 M469 32 h6" fill="none" stroke="#9CA3AF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="480" y="32.5" fill="#E5E7EB">CLI</text>
+
+  </g>
+</svg>
+
