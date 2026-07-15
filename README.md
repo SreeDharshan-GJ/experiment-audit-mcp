@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/assets/banner.svg" alt="experiment-audit — a scientific reasoning engine for ML experiments" width="100%">
+
 # experiment-audit
 
 **A scientific reasoning engine for ML experiments.**
@@ -75,19 +77,14 @@ experiment-audit reasoning run --input claims.json --format markdown
 
 ## Claude Code Compatible
 
-<table>
-<tr><td>
-
-✓ Native MCP server &nbsp;·&nbsp; ✓ Claude Code skill included &nbsp;·&nbsp;
-✓ Scientific research workflows &nbsp;·&nbsp; ✓ Local-first &nbsp;·&nbsp; ✓ Pure Python package
-
-</td></tr>
-</table>
+<img src="docs/assets/integration-badges.svg" alt="Integrations: Claude Code, MCP, Weights and Biases, Python, CLI">
 
 The reasoning discipline behind this project — how to phrase findings, weigh
 contradictory evidence, and write structured reviewer-style feedback — ships as a
 [Claude Code](https://docs.claude.com/claude-code) skill, with the eight MCP audit tools
 available automatically wherever `WANDB_API_KEY` is set.
+
+<sub>**◆ Claude Code** — run from inside this repo</sub>
 
 ```
 /plugin marketplace add ./dev/experiment-audit-plugin
@@ -215,6 +212,8 @@ export WANDB_ENTITY="your-team-or-username"   # optional
 ```
 
 **Claude Code:**
+
+<sub>**◆ Claude Code**</sub>
 
 ```bash
 claude mcp add -e WANDB_API_KEY=your-read-only-key experiment-audit -- experiment-audit-mcp
