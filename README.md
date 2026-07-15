@@ -1,5 +1,4 @@
 <div align="center">
-
 <p align="center">
   <img src="assets/banner.png" alt="Experiment Audit Banner" width="100%">
 </p>
