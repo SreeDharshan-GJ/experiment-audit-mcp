@@ -115,5 +115,5 @@ Initial public release. W&B backend only, per the v1 scope in
   ABC (no per-call page size) and the `list_runs` MCP tool's spec'd
   signature (`page_size=25`).
 
-[1.1.0]: https://github.com/SreeDharshan-GJ/experiment-audit-mcp/releases/tag/v1.1.0
-[1.0.0]: https://github.com/<your-username>/experiment-audit-mcp/releases/tag/v1.0.0
+[1.1.0]: https://github.com/SreeDharshan-GJ/experiment-audit/releases/tag/v1.1.0
+[1.0.0]: https://github.com/SreeDharshan-GJ/experiment-audit/releases/tag/v1.0.0
