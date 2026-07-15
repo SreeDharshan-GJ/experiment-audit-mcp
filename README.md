@@ -75,8 +75,6 @@ experiment-audit reasoning run --input claims.json --format markdown
 
 ## Claude Code Compatible
 
-<img src="docs/assets/integration-badges.svg" alt="Integrations: Claude Code, MCP, Weights and Biases, Python, CLI">
-
 The reasoning discipline behind this project — how to phrase findings, weigh
 contradictory evidence, and write structured reviewer-style feedback — ships as a
 [Claude Code](https://docs.claude.com/claude-code) skill, with the eight MCP audit tools
