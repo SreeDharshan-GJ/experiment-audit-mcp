@@ -321,7 +321,7 @@ credentials, is in [`docs/design-spec-v1.md`](docs/design-spec-v1.md) and the
 ## Development
 
 ```bash
-git clone https://github.com/Sreedharshan-GJ/experiment-audit.git
+git clone https://github.com/SreeDharshan-GJ/experiment-audit.git
 cd experiment-audit
 pip install -e ".[dev]"
 pytest tests/ -q        # 274 tests
@@ -380,7 +380,7 @@ is genuinely appreciated:
 
 Built and maintained by **Sree Dharshan G J**.
 
-[![GitHub](https://img.shields.io/badge/GitHub-Sreedharshan--GJ-181717?logo=github)](https://github.com/Sreedharshan-GJ)
+[![GitHub](https://img.shields.io/badge/GitHub-SreeDharshan--GJ-181717?logo=github)](https://github.com/SreeDharshan-GJ)
 
 If this project is useful to you, a star on the repo is the easiest way to support it and
 helps others find it.
